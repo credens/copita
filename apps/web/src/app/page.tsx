@@ -8,8 +8,8 @@ export default function HomePage() {
           <span className="sticker">$1 = una copita</span>
           <h1 style={{ fontSize: 44, lineHeight: 1.1, margin: "20px 0" }}>Invitá una copita a tus creadores favoritos.</h1>
           <p style={{ fontSize: 18, maxWidth: 480 }}>
-            Copita es micro-mecenazgo simple: un aporte chico, único o mensual, que va directo a la cuenta de Mercado Pago del creador. Nosotros
-            solo nos quedamos con una comisión chica en el mismo cobro.
+            Copita es micro-mecenazgo simple: convertite en mecenas de quien te gusta con un aporte chico, único o mensual, que llega directo a esa
+            persona. Nosotros nos quedamos con una parte chiquita para poder existir.
           </p>
           <div style={{ display: "flex", gap: 12, marginTop: 24, flexWrap: "wrap" }}>
             <Link href="/registro" className="btn btn-primary">
@@ -37,8 +37,8 @@ export default function HomePage() {
 
       <section style={{ marginTop: 64, display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
         <div className="card">
-          <h3>1. Conectá tu Mercado Pago</h3>
-          <p>El creador conecta su propia cuenta. Copita nunca ve ni mueve esa plata.</p>
+          <h3>1. Conectá tu forma de cobro</h3>
+          <p>El creador conecta su propia cuenta de Mercado Pago. Copita nunca ve ni mueve esa plata.</p>
         </div>
         <div className="card">
           <h3>2. Compartí tu link</h3>
@@ -54,7 +54,7 @@ export default function HomePage() {
 
       <section className="card" style={{ marginTop: 40, borderColor: "var(--ink)" }}>
         <h3 style={{ marginTop: 0 }}>Tus derechos como aportante</h3>
-        <p>Si pagaste una copita o sos socio de un club, podés arrepentirte o dar de baja cuando quieras — sin trámite ni esperar respuesta.</p>
+        <p>Si invitaste una copita o sos socio de un club, podés arrepentirte o dar de baja cuando quieras — sin trámite ni esperar respuesta.</p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
           <Link href="/arrepentimiento" className="btn">
             ↩ Botón de arrepentimiento
