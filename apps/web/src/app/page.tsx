@@ -15,6 +15,9 @@ export default function HomePage() {
             <Link href="/registro" className="btn btn-primary">
               Crear mi perfil de creador
             </Link>
+            <Link href="/demo" className="btn">
+              Ver un perfil de ejemplo
+            </Link>
             <Link href="/explorar" className="btn">
               Explorar creadores
             </Link>
@@ -56,17 +59,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="card" style={{ marginTop: 40, borderColor: "var(--ink)" }}>
-        <h3 style={{ marginTop: 0 }}>Tus derechos como aportante</h3>
-        <p>Si invitaste una copita o sos socio de un club, podés arrepentirte o dar de baja cuando quieras — sin trámite ni esperar respuesta.</p>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
-          <Link href="/arrepentimiento" className="btn">
-            ↩ Botón de arrepentimiento
-          </Link>
-          <Link href="/baja" className="btn">
-            ✕ Baja de servicio
-          </Link>
-        </div>
+      <section style={{ marginTop: 48, paddingTop: 16, borderTop: "2px dashed var(--ink)", fontSize: 13, color: "#55504a" }}>
+        <strong>Tus derechos como aportante:</strong> si invitaste una copita o sos socio de un club, podés{" "}
+        <Link href="/arrepentimiento">arrepentirte</Link> o <Link href="/baja">dar de baja</Link> cuando quieras — sin trámite ni esperar
+        respuesta.
       </section>
     </div>
   );

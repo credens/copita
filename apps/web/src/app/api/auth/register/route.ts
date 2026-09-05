@@ -37,6 +37,7 @@ const RESERVED_USERNAMES = new Set([
   "arrepentimiento",
   "recuperar-contrasena",
   "restablecer-contrasena",
+  "demo",
 ]);
 
 export async function POST(request: Request) {
