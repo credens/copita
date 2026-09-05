@@ -159,31 +159,6 @@ select {
   white-space: nowrap;
 }
 
-.compliance-bar {
-  background: var(--ink);
-  color: var(--paper);
-  border-bottom: var(--line) solid var(--ink);
-}
-
-.compliance-bar-inner {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-  padding: 8px 20px;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.compliance-bar-inner a {
-  color: var(--paper);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.compliance-bar-inner a:hover {
-  color: var(--coral);
-}
-
 .tag {
   display: inline-block;
   border: 2px solid var(--ink);

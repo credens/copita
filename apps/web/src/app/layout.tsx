@@ -26,13 +26,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </nav>
           </div>
         </header>
-        {/* Visible desde el primer acceso en todo el sitio, no solo en la home (Disposición 954/2025) */}
-        <div className="compliance-bar">
-          <div className="container compliance-bar-inner">
-            <Link href="/arrepentimiento">↩ Botón de arrepentimiento</Link>
-            <Link href="/baja">✕ Baja de servicio</Link>
-          </div>
-        </div>
         <main>{children}</main>
         <footer className="site-footer">
           <div className="container">

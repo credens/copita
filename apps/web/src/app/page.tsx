@@ -30,18 +30,6 @@ export default function HomePage() {
                 <td>1x copita</td>
                 <td style={{ textAlign: "right" }}>$1.000</td>
               </tr>
-              <tr>
-                <td>comisión Copita (5%)</td>
-                <td style={{ textAlign: "right" }}>-$50</td>
-              </tr>
-              <tr>
-                <td>
-                  <strong>Recibe el creador</strong>
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  <strong>$950</strong>
-                </td>
-              </tr>
             </tbody>
           </table>
         </div>
