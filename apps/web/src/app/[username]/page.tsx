@@ -3,11 +3,18 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CopitaForm } from "./copita-form";
 import { SubscribeButton } from "./subscribe-button";
+import { AgeGateScreen, isAgeGateConfirmed } from "./age-gate";
 
 export default async function CreatorProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
   const creator = await db.user.findUnique({ where: { username } });
   if (!creator) notFound();
+
+  // Corta acá si hace falta el aviso: nada del contenido de abajo (bio,
+  // mensajes del muro, etc.) se busca ni se renderiza hasta confirmar.
+  if (creator.matureContent && !(await isAgeGateConfirmed(creator.username))) {
+    return <AgeGateScreen username={creator.username} />;
+  }
 
   const recentCopitas = await db.copita.findMany({
     where: { creatorId: creator.id, status: "APPROVED" },

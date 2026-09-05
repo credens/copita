@@ -15,6 +15,7 @@ export default async function PerfilPage() {
     bannerUrl: user.bannerUrl,
     tags: user.tags,
     copitaPriceUsd: Number(user.copitaPriceUsd),
+    matureContent: user.matureContent,
     subscriptionEnabled: user.subscriptionEnabled,
     subscriptionPriceUsd: user.subscriptionPriceUsd ? Number(user.subscriptionPriceUsd) : null,
   };

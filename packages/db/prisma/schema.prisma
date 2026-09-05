@@ -57,6 +57,9 @@ model User {
   avatarUrl   String?
   bannerUrl   String?
   tags        String[] @default([])
+  // Autodeclarado por el creador, no verificado — ver /panel/perfil. Activa
+  // un aviso ("age gate") antes de mostrar el perfil público en [username].
+  matureContent Boolean @default(false)
 
   // Precio de referencia en USD de una copita (por defecto ~1). El monto real
   // cobrado se calcula en ARS al momento del pago, ver src/lib/pricing.ts.

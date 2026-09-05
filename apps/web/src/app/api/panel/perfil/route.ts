@@ -10,6 +10,7 @@ const schema = z.object({
   bannerUrl: z.string().trim().url().max(500).optional().or(z.literal("")),
   tags: z.string().trim().max(200).optional().or(z.literal("")),
   copitaPriceUsd: z.coerce.number().min(0.5).max(1000),
+  matureContent: z.coerce.boolean().optional(),
   subscriptionEnabled: z.coerce.boolean().optional(),
   // El input de subscriptionPriceUsd solo se renderiza en el form cuando el
   // checkbox está tildado — cuando no, el cliente manda `null` (no `undefined`,
@@ -43,6 +44,7 @@ export async function PATCH(request: Request) {
             .slice(0, 10)
         : [],
       copitaPriceUsd: data.copitaPriceUsd,
+      matureContent: Boolean(data.matureContent),
       subscriptionEnabled: Boolean(data.subscriptionEnabled),
       subscriptionPriceUsd: data.subscriptionEnabled ? (data.subscriptionPriceUsd ?? null) : null,
     },

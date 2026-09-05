@@ -12,6 +12,7 @@ export type PerfilFormUser = {
   bannerUrl: string | null;
   tags: string[];
   copitaPriceUsd: number;
+  matureContent: boolean;
   subscriptionEnabled: boolean;
   subscriptionPriceUsd: number | null;
 };
@@ -36,6 +37,7 @@ export function PerfilForm({ user }: { user: PerfilFormUser }) {
       bannerUrl: form.get("bannerUrl"),
       tags: form.get("tags"),
       copitaPriceUsd: form.get("copitaPriceUsd"),
+      matureContent: form.get("matureContent") === "on",
       subscriptionEnabled: form.get("subscriptionEnabled") === "on",
       subscriptionPriceUsd: form.get("subscriptionPriceUsd"),
     };
@@ -74,6 +76,15 @@ export function PerfilForm({ user }: { user: PerfilFormUser }) {
       <div className="field">
         <label htmlFor="copitaPriceUsd">Precio de una copita (USD de referencia)</label>
         <input id="copitaPriceUsd" name="copitaPriceUsd" type="number" step="0.5" min="0.5" defaultValue={Number(user.copitaPriceUsd)} required />
+      </div>
+      <div className="field">
+        <label>
+          <input type="checkbox" name="matureContent" defaultChecked={user.matureContent} /> Mi contenido es para mayores de 18 años (+18)
+        </label>
+        <p style={{ fontSize: 13, color: "#55504a", marginTop: 4 }}>
+          Si lo tildás, tu perfil público muestra un aviso antes de que cualquiera pueda verlo. Sos vos quien declara esto, no lo verificamos —
+          declararlo mal es tu responsabilidad frente a tus aportantes.
+        </p>
       </div>
       <div className="field">
         <label>
