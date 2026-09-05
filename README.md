@@ -42,6 +42,12 @@ Como el aportante no tiene cuenta ni login, la única verificación disponible e
 
 Mercado Pago Argentina liquida en ARS. Un creador define el precio de su copita en **USD de referencia** (por defecto 1). Al momento del cobro, `src/lib/fx.ts` resuelve la cotización oficial del día (dolarapi.com, con fallback a `USD_ARS_FALLBACK_RATE`) y `src/lib/pricing.ts` calcula el monto real en ARS, redondeado a un número prolijo.
 
+## Subida de avatar/banner
+
+Avatar y banner se suben directo a S3 (o compatible: MinIO, R2, DO Spaces) vía URL prefirmada — el servidor de Next.js nunca ve los bytes del archivo, solo firma el `PUT` (`src/lib/storage.ts`, mismo patrón que `shopy`). El navegador optimiza la imagen antes de subir (máx. 2000px, reencodeada a WebP) en `src/lib/image-optimize.ts`.
+
+Sin `S3_*` configurado en el entorno, la carga falla con un mensaje claro en el panel — el resto del sitio sigue andando igual.
+
 ## Tests
 
 Tres niveles, cada uno cubre lo que el anterior no puede:

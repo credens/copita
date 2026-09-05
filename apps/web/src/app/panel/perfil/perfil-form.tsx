@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ImageUploader } from "./image-uploader";
 
 // Datos ya serializados a tipos planos (los Decimal de Prisma no cruzan el
 // límite Server -> Client Component) — ver PerfilPage, que hace el mapeo.
@@ -65,14 +66,8 @@ export function PerfilForm({ user }: { user: PerfilFormUser }) {
         <label htmlFor="tags">Tags (separados por coma)</label>
         <input id="tags" name="tags" defaultValue={user.tags.join(", ")} placeholder="música, streaming, arte" />
       </div>
-      <div className="field">
-        <label htmlFor="avatarUrl">URL del avatar</label>
-        <input id="avatarUrl" name="avatarUrl" defaultValue={user.avatarUrl ?? ""} placeholder="https://..." />
-      </div>
-      <div className="field">
-        <label htmlFor="bannerUrl">URL del banner</label>
-        <input id="bannerUrl" name="bannerUrl" defaultValue={user.bannerUrl ?? ""} placeholder="https://..." />
-      </div>
+      <ImageUploader name="avatarUrl" label="Avatar" kind="avatar" initialUrl={user.avatarUrl} />
+      <ImageUploader name="bannerUrl" label="Banner" kind="banner" initialUrl={user.bannerUrl} />
       <div className="field">
         <label htmlFor="copitaPriceUsd">Precio de una copita (USD de referencia)</label>
         <input id="copitaPriceUsd" name="copitaPriceUsd" type="number" step="0.5" min="0.5" defaultValue={Number(user.copitaPriceUsd)} required />
