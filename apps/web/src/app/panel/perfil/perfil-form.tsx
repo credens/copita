@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImageUploader } from "./image-uploader";
+import { NetEarningsEstimate } from "./net-earnings-estimate";
 
 // Datos ya serializados a tipos planos (los Decimal de Prisma no cruzan el
 // límite Server -> Client Component) — ver PerfilPage, que hace el mapeo.
@@ -13,17 +14,19 @@ export type PerfilFormUser = {
   bannerUrl: string | null;
   tags: string[];
   copitaPriceUsd: number;
+  feeValue: number;
   matureContent: boolean;
   subscriptionEnabled: boolean;
   subscriptionPriceUsd: number | null;
 };
 
-export function PerfilForm({ user }: { user: PerfilFormUser }) {
+export function PerfilForm({ user, fxRateUsed }: { user: PerfilFormUser; fxRateUsed: number }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
   const [subscriptionEnabled, setSubscriptionEnabled] = useState(user.subscriptionEnabled);
+  const [copitaPriceUsd, setCopitaPriceUsd] = useState(user.copitaPriceUsd);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -70,8 +73,18 @@ export function PerfilForm({ user }: { user: PerfilFormUser }) {
       <ImageUploader name="bannerUrl" label="Banner" kind="banner" initialUrl={user.bannerUrl} />
       <div className="field">
         <label htmlFor="copitaPriceUsd">Precio de una copita (USD de referencia)</label>
-        <input id="copitaPriceUsd" name="copitaPriceUsd" type="number" step="0.5" min="0.5" defaultValue={Number(user.copitaPriceUsd)} required />
+        <input
+          id="copitaPriceUsd"
+          name="copitaPriceUsd"
+          type="number"
+          step="0.5"
+          min="0.5"
+          value={copitaPriceUsd}
+          onChange={(e) => setCopitaPriceUsd(Number(e.target.value))}
+          required
+        />
       </div>
+      <NetEarningsEstimate priceUsd={copitaPriceUsd} feeValuePercent={user.feeValue} fxRateUsed={fxRateUsed} />
       <div className="field">
         <label>
           <input type="checkbox" name="matureContent" defaultChecked={user.matureContent} /> Mi contenido es para mayores de 18 años (+18)

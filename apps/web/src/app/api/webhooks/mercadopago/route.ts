@@ -3,6 +3,7 @@ import { db, PaymentStatus, SubscriptionStatus } from "@copita/db";
 import { sellerAccessToken } from "@/lib/mercadopago";
 import { fetchPreapproval } from "@/lib/mercadopago-subscriptions";
 import { feeRateBps, platformFeeAmount } from "@/lib/platform-fee";
+import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 
 type Payload = { id?: number | string; type?: string; action?: string; user_id?: number | string; data?: { id?: string } };
@@ -49,7 +50,10 @@ async function handleCopitaPayment(request: NextRequest, creator: NonNullable<Aw
   const response = await fetch(`https://api.mercadopago.com/v1/${isOrder ? "orders" : "payments"}/${encodeURIComponent(dataId)}`, {
     headers: { authorization: `Bearer ${await sellerAccessToken(creator)}` },
   });
-  if (!response.ok) return NextResponse.json({ error: "No se pudo reconciliar" }, { status: 502 });
+  if (!response.ok) {
+    logger.error("webhook.copita_reconcile_failed", { dataId, creatorUsername: creator.username, status: response.status });
+    return NextResponse.json({ error: "No se pudo reconciliar" }, { status: 502 });
+  }
   const remote = (await response.json()) as { id: number | string; status: string; external_reference?: string };
   const copita = await db.copita.findFirst({
     where: { OR: [{ providerPaymentId: String(remote.id) }, ...(remote.external_reference ? [{ id: remote.external_reference }] : [])], creatorId: creator.id },
@@ -115,7 +119,10 @@ async function handleAuthorizedPayment(creator: NonNullable<Awaited<ReturnType<t
   const response = await fetch(`https://api.mercadopago.com/authorized_payments/${encodeURIComponent(dataId)}`, {
     headers: { authorization: `Bearer ${await sellerAccessToken(creator)}` },
   });
-  if (!response.ok) return NextResponse.json({ error: "No se pudo reconciliar el cobro de la suscripción" }, { status: 502 });
+  if (!response.ok) {
+    logger.error("webhook.subscription_reconcile_failed", { dataId, creatorUsername: creator.username, status: response.status });
+    return NextResponse.json({ error: "No se pudo reconciliar el cobro de la suscripción" }, { status: 502 });
+  }
   const remote = (await response.json()) as { id: number | string; status: string; preapproval_id?: string; transaction_amount?: number };
   if (!remote.preapproval_id) return NextResponse.json({ ok: true });
   const subscription = await db.subscription.findUnique({ where: { mpPreapprovalId: remote.preapproval_id } });
@@ -142,16 +149,22 @@ async function handleAuthorizedPayment(creator: NonNullable<Awaited<ReturnType<t
   return NextResponse.json({ ok: true });
 }
 
-export async function POST(request: NextRequest) {
+async function handleWebhook(request: NextRequest) {
   const payload = (await request.json().catch(() => null)) as Payload | null;
   const dataId = String(payload?.data?.id ?? request.nextUrl.searchParams.get("data.id") ?? "");
-  if (!dataId || !validSignature(request, dataId)) return NextResponse.json({ error: "Firma inválida" }, { status: 401 });
+  if (!dataId || !validSignature(request, dataId)) {
+    logger.warn("webhook.invalid_signature", { dataId, hasSignatureHeader: Boolean(request.headers.get("x-signature")) });
+    return NextResponse.json({ error: "Firma inválida" }, { status: 401 });
+  }
 
   const type = payload?.type ?? "";
   if (!["payment", "order", "subscription_preapproval", "subscription_authorized_payment"].includes(type)) return NextResponse.json({ ok: true });
 
   const creator = await resolveCreator(request, payload!);
-  if (!creator?.mpAccessToken) return NextResponse.json({ error: "Creador no encontrado" }, { status: 404 });
+  if (!creator?.mpAccessToken) {
+    logger.warn("webhook.unresolved_creator", { dataId, type, usernameParam: request.nextUrl.searchParams.get("creator"), mpUserId: payload!.user_id });
+    return NextResponse.json({ error: "Creador no encontrado" }, { status: 404 });
+  }
 
   const eventId = String(payload!.id ?? dataId);
   const eventType = payload!.action ?? type;
@@ -162,4 +175,15 @@ export async function POST(request: NextRequest) {
   if (type === "payment" || type === "order") return handleCopitaPayment(request, creator, dataId, type === "order", event);
   if (type === "subscription_preapproval") return handlePreapprovalUpdate(creator, dataId, event);
   return handleAuthorizedPayment(creator, dataId, event);
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    return await handleWebhook(request);
+  } catch (error) {
+    // Sin esto, una excepción acá (ej. la base caída, un bug) solo se veía
+    // como un 500 genérico de Next sin ningún rastro — nadie se enteraba.
+    logger.error("webhook.unhandled_exception", { message: error instanceof Error ? error.message : String(error) });
+    return NextResponse.json({ error: "Error interno" }, { status: 500 });
+  }
 }

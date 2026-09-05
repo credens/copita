@@ -1,10 +1,13 @@
 import { currentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { usdArsRate } from "@/lib/fx";
 import { PerfilForm, type PerfilFormUser } from "./perfil-form";
 
 export default async function PerfilPage() {
   const user = await currentUser();
   if (!user) redirect("/login");
+
+  const fxRateUsed = await usdArsRate();
 
   // Los campos Decimal de Prisma no son serializables al cruzar a un Client
   // Component — se convierten a number acá antes de pasarlos como prop.
@@ -15,6 +18,7 @@ export default async function PerfilPage() {
     bannerUrl: user.bannerUrl,
     tags: user.tags,
     copitaPriceUsd: Number(user.copitaPriceUsd),
+    feeValue: Number(user.feeValue),
     matureContent: user.matureContent,
     subscriptionEnabled: user.subscriptionEnabled,
     subscriptionPriceUsd: user.subscriptionPriceUsd ? Number(user.subscriptionPriceUsd) : null,
@@ -23,7 +27,7 @@ export default async function PerfilPage() {
   return (
     <div className="container" style={{ maxWidth: 560, paddingTop: 40, paddingBottom: 40 }}>
       <h1>Editar mi perfil</h1>
-      <PerfilForm user={formUser} />
+      <PerfilForm user={formUser} fxRateUsed={fxRateUsed} />
     </div>
   );
 }

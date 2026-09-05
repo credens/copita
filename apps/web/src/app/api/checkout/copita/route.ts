@@ -6,6 +6,7 @@ import { sellerAccessToken } from "@/lib/mercadopago";
 import { platformFeeAmount, feeRateBps } from "@/lib/platform-fee";
 import { copitaAmountArs } from "@/lib/pricing";
 import { computeFinePortion, outstandingFineUsd } from "@/lib/content-violations";
+import { logger } from "@/lib/logger";
 
 const inputSchema = z.object({
   username: z.string().trim().toLowerCase().min(1),
@@ -15,7 +16,7 @@ const inputSchema = z.object({
   senderEmail: z.string().trim().toLowerCase().email(),
 });
 
-export async function POST(request: NextRequest) {
+async function handleCheckout(request: NextRequest) {
   const parsed = inputSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Datos inválidos" }, { status: 400 });
   const { username, quantity, message, senderName, senderEmail } = parsed.data;
@@ -56,9 +57,22 @@ export async function POST(request: NextRequest) {
 
   const appUrl = (process.env.APP_URL ?? request.nextUrl.origin).replace(/\/$/, "");
   const backBase = `${appUrl}/${creator.username}/gracias`;
+
+  let accessToken: string;
+  try {
+    accessToken = await sellerAccessToken(creator);
+  } catch (error) {
+    // sellerAccessToken ya loguea el detalle (mercadopago.token_refresh_failed) —
+    // acá solo dejamos registro en la propia copita para no perder el rastro
+    // de qué pago quedó a mitad de camino.
+    const message = error instanceof Error ? error.message : "No se pudo autenticar con Mercado Pago";
+    await db.copita.update({ where: { id: copita.id }, data: { rawResponse: { error: message } } });
+    return NextResponse.json({ error: message }, { status: 422 });
+  }
+
   const response = await fetch("https://api.mercadopago.com/checkout/preferences", {
     method: "POST",
-    headers: { accept: "application/json", "content-type": "application/json", authorization: `Bearer ${await sellerAccessToken(creator)}`, "x-idempotency-key": idempotencyKey },
+    headers: { accept: "application/json", "content-type": "application/json", authorization: `Bearer ${accessToken}`, "x-idempotency-key": idempotencyKey },
     body: JSON.stringify({
       items: [{ id: copita.id, title: `Copita para @${creator.username}`, quantity: 1, unit_price: amount, currency_id: "ARS" }],
       payer: { email: senderEmail },
@@ -72,8 +86,18 @@ export async function POST(request: NextRequest) {
   const preference = (await response.json()) as { id?: string; init_point?: string; sandbox_init_point?: string; message?: string };
   if (!response.ok || !preference.init_point) {
     await db.copita.update({ where: { id: copita.id }, data: { rawResponse: preference } });
+    logger.warn("checkout.copita.mp_preference_rejected", { copitaId: copita.id, creatorUsername: creator.username, status: response.status, message: preference.message });
     return NextResponse.json({ error: preference.message ?? "No se pudo iniciar Mercado Pago" }, { status: 422 });
   }
   await db.copita.update({ where: { id: copita.id }, data: { providerPaymentId: preference.id, rawResponse: preference } });
   return NextResponse.json({ checkoutUrl: process.env.MP_USE_SANDBOX === "true" ? preference.sandbox_init_point ?? preference.init_point : preference.init_point });
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    return await handleCheckout(request);
+  } catch (error) {
+    logger.error("checkout.copita.unhandled_exception", { message: error instanceof Error ? error.message : String(error) });
+    return NextResponse.json({ error: "No se pudo iniciar el pago" }, { status: 500 });
+  }
 }

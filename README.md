@@ -42,6 +42,19 @@ Como el aportante no tiene cuenta ni login, la única verificación disponible e
 
 Mercado Pago Argentina liquida en ARS. Un creador define el precio de su copita en **USD de referencia** (por defecto 1). Al momento del cobro, `src/lib/fx.ts` resuelve la cotización oficial del día (dolarapi.com, con fallback a `USD_ARS_FALLBACK_RATE`) y `src/lib/pricing.ts` calcula el monto real en ARS, redondeado a un número prolijo.
 
+## Cuánto le queda neto al creador
+
+Copita cobra su 5% en el mismo pago (`marketplace_fee`), pero **Mercado Pago también se queda su propia comisión, que Copita no ve ni controla** — no hay API para consultarla antes de cobrar. `/panel/perfil` muestra una estimación en vivo (`src/lib/mp-fee-estimate.ts`) con las tasas publicadas de MP Argentina (~7.7% acreditación inmediata, ~4.2% a 14 días, IVA incluido) apenas el creador carga el precio de su copita — antes de conectar Mercado Pago o recibir la primera. Son valores de referencia, no un cálculo exacto por transacción.
+
+## Observabilidad
+
+Sin logging estructurado antes, un webhook que fallaba (ej. Mercado Pago caído al reconciliar, un token que no se pudo renovar) solo devolvía un 502/404 — nadie se enteraba salvo que alguien mirara los logs crudos a mano.
+
+- `src/lib/logger.ts`: cada evento importante (webhook sin poder reconciliar, creador no resuelto, firma inválida, token de Mercado Pago que no se pudo renovar, excepciones no manejadas en el webhook y en el checkout) se loguea como una línea JSON a stdout/stderr — la recoge cualquier capa de hosting sin nada más que configurar.
+- `src/lib/alerts.ts`: cada `logger.error()` además dispara un webhook a `ALERT_WEBHOOK_URL` si está configurado (formato Slack o Discord, autodetectado por la URL). Sin esa variable, sigue siendo un no-op — los eventos quedan en los logs igual, simplemente no le avisan a nadie en tiempo real todavía.
+
+No se integró Sentry ni un proveedor de logging pago (ninguna cuenta configurada) — este es un punto de partida liviano y sin dependencias nuevas, no un reemplazo definitivo.
+
 ## Subida de avatar/banner
 
 Avatar y banner se suben directo a S3 (o compatible: MinIO, R2, DO Spaces) vía URL prefirmada — el servidor de Next.js nunca ve los bytes del archivo, solo firma el `PUT` (`src/lib/storage.ts`, mismo patrón que `shopy`). El navegador optimiza la imagen antes de subir (máx. 2000px, reencodeada a WebP) en `src/lib/image-optimize.ts`.
