@@ -5,6 +5,8 @@ import { createSessionValue, sessionCookie } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { requestIp } from "@/lib/rate-limit";
 import { distributedRateLimit } from "@/lib/distributed-rate-limit";
+import { issueAuthToken } from "@/lib/auth-tokens";
+import { sendEmailVerification } from "@/lib/mail";
 
 const schema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -19,7 +21,23 @@ const schema = z.object({
     .regex(/^[a-z0-9](?:[a-z0-9-]{0,28}[a-z0-9])?$/, "Usá solo letras, números y guiones"),
 });
 
-const RESERVED_USERNAMES = new Set(["admin", "panel", "login", "registro", "api", "explorar", "terminos", "privacidad", "reembolsos", "gracias", "club"]);
+const RESERVED_USERNAMES = new Set([
+  "admin",
+  "panel",
+  "login",
+  "registro",
+  "api",
+  "explorar",
+  "terminos",
+  "privacidad",
+  "reembolsos",
+  "gracias",
+  "club",
+  "baja",
+  "arrepentimiento",
+  "recuperar-contrasena",
+  "restablecer-contrasena",
+]);
 
 export async function POST(request: Request) {
   const attempt = await distributedRateLimit(`register:${requestIp(request)}`, 5, 60 * 60_000);
@@ -35,6 +53,10 @@ export async function POST(request: Request) {
 
   const passwordHash = await hashPassword(data.password);
   const user = await db.user.create({ data: { name: data.name, email: data.email, passwordHash, username: data.username } });
+
+  const token = await issueAuthToken(user.id, "EMAIL_VERIFICATION", 24 * 60);
+  const url = `${process.env.APP_URL ?? "http://localhost:3000"}/api/auth/verify-email?token=${token}`;
+  await sendEmailVerification({ to: user.email, name: user.name, url }).catch(() => undefined);
 
   const response = NextResponse.json({ ok: true, username: user.username });
   response.cookies.set(sessionCookie(createSessionValue(user.id)));

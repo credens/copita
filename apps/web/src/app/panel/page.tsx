@@ -2,6 +2,7 @@ import { currentUser } from "@/lib/auth";
 import { db } from "@copita/db";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { EmailVerificationNotice } from "./email-verification-notice";
 
 export default async function PanelPage() {
   const user = await currentUser();
@@ -22,6 +23,8 @@ export default async function PanelPage() {
       <p>
         Tu perfil público: <Link href={`/${user.username}`}>copita.ar/{user.username}</Link>
       </p>
+
+      <EmailVerificationNotice verified={Boolean(user.emailVerifiedAt)} />
 
       {!user.mpConnected ? (
         <div className="card" style={{ borderColor: "var(--coral)" }}>
@@ -62,6 +65,9 @@ export default async function PanelPage() {
         </Link>
         <Link href="/panel/copitas" className="btn">
           Ver historial de copitas
+        </Link>
+        <Link href="/panel/seguridad" className="btn">
+          Seguridad
         </Link>
         <form action="/api/auth/logout" method="post">
           <button type="submit" className="btn">

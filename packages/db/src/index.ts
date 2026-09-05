@@ -4,4 +4,4 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 export const db = globalForPrisma.prisma ?? new PrismaClient();
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
 
-export { PaymentStatus, SubscriptionStatus, CommissionStatus, PostVisibility, Prisma } from "@prisma/client";
+export { PaymentStatus, SubscriptionStatus, CommissionStatus, PostVisibility, AuthTokenType, Prisma } from "@prisma/client";

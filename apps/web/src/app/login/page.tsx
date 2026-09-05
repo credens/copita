@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const [error, setError] = useState<string | null>(searchParams.get("email") === "invalid" ? "Ese enlace de verificación venció o ya se usó." : null);
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -42,6 +51,8 @@ export default function LoginPage() {
       </form>
       <p style={{ marginTop: 16 }}>
         ¿No tenés cuenta? <Link href="/registro">Creá tu perfil</Link>
+        <br />
+        <Link href="/recuperar-contrasena">¿Olvidaste tu contraseña?</Link>
       </p>
     </div>
   );
