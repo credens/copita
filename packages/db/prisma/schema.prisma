@@ -1,0 +1,225 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  REFUNDED
+}
+
+enum SubscriptionStatus {
+  PENDING
+  AUTHORIZED
+  PAUSED
+  CANCELLED
+}
+
+enum CommissionStatus {
+  PENDING
+  COLLECTED
+  REVERSED
+}
+
+enum PostVisibility {
+  PUBLIC
+  CLUB
+}
+
+// Un creador es también la cuenta de autenticación: no hay noción de equipo/tienda
+// separada como en shopy, cada creador tiene un único perfil público y una única
+// conexión de Mercado Pago.
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  passwordHash String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Perfil público (copita.ar/username)
+  username    String   @unique
+  bio         String?
+  avatarUrl   String?
+  bannerUrl   String?
+  tags        String[] @default([])
+
+  // Precio de referencia en USD de una copita (por defecto ~1). El monto real
+  // cobrado se calcula en ARS al momento del pago, ver src/lib/pricing.ts.
+  copitaPriceUsd        Decimal @default(1) @db.Decimal(8, 2)
+  subscriptionEnabled   Boolean @default(false)
+  subscriptionPriceUsd  Decimal? @db.Decimal(8, 2)
+
+  // Conexión de Mercado Pago del creador (OAuth + PKCE). Copita nunca ve ni
+  // mueve esta plata directamente: cada cobro se hace con el access_token del
+  // creador y Mercado Pago separa la comisión de Copita en el mismo pago.
+  mpAccessToken    String?
+  mpRefreshToken   String?
+  mpTokenExpiresAt DateTime?
+  mpUserId         String?
+  mpPublicKey      String?
+  mpConnected      Boolean  @default(false)
+  mpScope          String?
+
+  // Comisión de la plataforma sobre los cobros de este creador.
+  feeType  String   @default("percent")
+  feeValue Decimal  @default(5) @db.Decimal(8, 4)
+  feeMin   Decimal? @db.Decimal(12, 2)
+  feeMax   Decimal? @db.Decimal(12, 2)
+
+  copitas       Copita[]
+  subscriptions Subscription[]
+  posts         Post[]
+
+  @@index([username])
+}
+
+// Aporte suelto ("una copita"). Actúa como el registro de pago en sí mismo
+// (no hay un modelo Order/Payment separado: no hay carrito, es un solo cobro).
+model Copita {
+  id          String        @id @default(cuid())
+  creatorId   String
+  amount      Decimal       @db.Decimal(12, 2) // monto real cobrado, en ARS
+  currency    String        @default("ARS")
+  amountUsdRef Decimal      @db.Decimal(8, 2)  // referencia en USD al momento del cobro
+  fxRateUsed  Decimal       @db.Decimal(12, 4)
+  quantity    Int           @default(1)
+  message     String?
+  senderName  String?
+  senderEmail String
+  status      PaymentStatus @default(PENDING)
+  idempotencyKey    String  @unique
+  providerPaymentId String? @unique
+  rawResponse Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  creator     User          @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  commission  Commission?
+  events      PaymentEvent[]
+
+  @@index([creatorId, createdAt])
+  @@index([creatorId, status])
+}
+
+// Club de Copita: suscripción mensual de un aportante a un creador.
+model Subscription {
+  id          String             @id @default(cuid())
+  creatorId   String
+  supporterEmail String
+  supporterName  String?
+  amount      Decimal            @db.Decimal(12, 2) // monto ARS por período, fijado al autorizar
+  currency    String             @default("ARS")
+  amountUsdRef Decimal           @db.Decimal(8, 2)
+  status      SubscriptionStatus @default(PENDING)
+  mpPreapprovalId String?        @unique
+  nextBillingDate DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  cancelledAt DateTime?
+
+  creator     User               @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  payments    SubscriptionPayment[]
+  events      PaymentEvent[]
+
+  @@index([creatorId, status])
+  @@index([supporterEmail])
+}
+
+// Cada cobro recurrente individual de una suscripción activa.
+model SubscriptionPayment {
+  id                String        @id @default(cuid())
+  subscriptionId    String
+  idempotencyKey    String        @unique
+  providerPaymentId String?       @unique
+  status            PaymentStatus @default(PENDING)
+  amount            Decimal       @db.Decimal(12, 2)
+  rawResponse       Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  subscription Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  commission   Commission?
+  events       PaymentEvent[]
+
+  @@index([subscriptionId, createdAt])
+}
+
+// Cuánto se queda la plataforma por cobro. Para copitas sueltas, Mercado Pago
+// la separa sola en el mismo pago (marketplace_fee) y esto queda COLLECTED en
+// cuanto se aprueba. Para pagos de suscripción, la API de Preapproval no
+// soporta split — la comisión queda PENDING hasta un proceso de liquidación
+// aparte (ver README, sección "Límite real de las suscripciones").
+model Commission {
+  id         String            @id @default(cuid())
+  copitaId   String?           @unique
+  subscriptionPaymentId String? @unique
+  rateBps    Int
+  baseAmount Decimal           @db.Decimal(12, 2)
+  amount     Decimal           @db.Decimal(12, 2)
+  status     CommissionStatus  @default(PENDING)
+  collectedAt DateTime?
+  reversedAt  DateTime?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  copita             Copita?              @relation(fields: [copitaId], references: [id], onDelete: Cascade)
+  subscriptionPayment SubscriptionPayment? @relation(fields: [subscriptionPaymentId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+// Idempotencia de webhooks de Mercado Pago (pagos y preapprovals).
+model PaymentEvent {
+  id                 String   @id @default(cuid())
+  provider           String   @default("mercadopago")
+  providerEventId    String
+  eventType          String
+  copitaId           String?
+  subscriptionId     String?
+  subscriptionPaymentId String?
+  payload            Json
+  processedAt        DateTime?
+  createdAt          DateTime @default(now())
+
+  copita             Copita?              @relation(fields: [copitaId], references: [id], onDelete: SetNull)
+  subscription       Subscription?        @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  subscriptionPayment SubscriptionPayment? @relation(fields: [subscriptionPaymentId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerEventId, eventType])
+  @@index([copitaId])
+  @@index([subscriptionId])
+}
+
+// Fase 5 (scaffold): contenido exclusivo para socios del club.
+model Post {
+  id         String         @id @default(cuid())
+  creatorId  String
+  title      String
+  body       String
+  visibility PostVisibility @default(PUBLIC)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  creator    User           @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([creatorId, visibility, createdAt])
+}
+
+// Rate limiting distribuido (login/registro) para no depender solo de memoria de proceso.
+model RequestLimit {
+  key       String   @id
+  count     Int
+  resetAt   DateTime @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([resetAt])
+}

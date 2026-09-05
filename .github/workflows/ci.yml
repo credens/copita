@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Valores fijos solo para CI/tests — nunca se usan contra Mercado Pago real
+  # ni contra una base de datos real, así que no hace falta que sean secretos.
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/copita_test?schema=public
+  TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/copita_test?schema=public
+  TOKEN_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+  SESSION_SECRET: ci-session-secret-not-for-production
+  APP_URL: http://localhost:3100
+  NEXT_PUBLIC_APP_URL: http://localhost:3100
+  MP_WEBHOOK_SECRET: ci-webhook-secret
+  MP_USE_SANDBOX: "true"
+  USD_ARS_FALLBACK_RATE: "1000"
+  PLATFORM_ADMIN_EMAILS: admin@copita.ar
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: copita_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Prisma generate + migrate (test DB)
+        run: |
+          npx prisma generate --schema packages/db/prisma/schema.prisma
+          npx prisma migrate deploy --schema packages/db/prisma/schema.prisma
+
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - run: npm run test:integration
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
+
+      - run: npm run build
