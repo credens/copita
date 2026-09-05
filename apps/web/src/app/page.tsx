@@ -15,9 +15,6 @@ export default function HomePage() {
             <Link href="/registro" className="btn btn-primary">
               Crear mi perfil de creador
             </Link>
-            <Link href="/demo" className="btn">
-              Ver un perfil de ejemplo
-            </Link>
             <Link href="/explorar" className="btn">
               Explorar creadores
             </Link>
