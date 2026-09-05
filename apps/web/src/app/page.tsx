@@ -35,19 +35,23 @@ export default function HomePage() {
         </div>
       </div>
 
-      <section style={{ marginTop: 64, display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+      <section style={{ marginTop: 64, display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
         <div className="card">
-          <h3>1. Conectá tu forma de cobro</h3>
-          <p>El creador conecta su propia cuenta de Mercado Pago. Copita nunca ve ni mueve esa plata.</p>
+          <h3>1. Creá tu cuenta</h3>
+          <p>Registrate gratis y elegí tu usuario — es lo único que necesitás para arrancar.</p>
         </div>
         <div className="card">
-          <h3>2. Compartí tu link</h3>
+          <h3>2. Subí tu contenido</h3>
+          <p>Contale a tus seguidores quién sos: foto, bio y tags desde tu panel.</p>
+        </div>
+        <div className="card">
+          <h3>3. Compartí tu link</h3>
           <p>
             <span className="mono">copita.ar/tuusuario</span> — tu perfil público con un muro de apoyos.
           </p>
         </div>
         <div className="card">
-          <h3>3. Recibí copitas</h3>
+          <h3>4. Recibí copitas</h3>
           <p>Aportes sueltos o un Club de Copita mensual, con mensaje público opcional.</p>
         </div>
       </section>
