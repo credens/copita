@@ -63,6 +63,19 @@ export default function HomePage() {
           <p>Aportes sueltos o un Club de Copita mensual, con mensaje público opcional.</p>
         </div>
       </section>
+
+      <section className="card" style={{ marginTop: 40, borderColor: "var(--ink)" }}>
+        <h3 style={{ marginTop: 0 }}>Tus derechos como aportante</h3>
+        <p>Si pagaste una copita o sos socio de un club, podés arrepentirte o dar de baja cuando quieras — sin trámite ni esperar respuesta.</p>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
+          <Link href="/arrepentimiento" className="btn">
+            ↩ Botón de arrepentimiento
+          </Link>
+          <Link href="/baja" className="btn">
+            ✕ Baja de servicio
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

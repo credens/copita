@@ -30,6 +30,14 @@ Por eso, para el Club de Copita:
 
 Si Mercado Pago libera una forma de aplicar `application_fee`/split sobre `Preapproval` en el futuro, este es el lugar para revisitar (`src/lib/mercadopago-subscriptions.ts`).
 
+## Botón de arrepentimiento y baja de servicio
+
+Requeridos por Disposición 954/2025 (visibles desde el primer acceso, en lugar destacado) y Disposición 3/2026 (verificación de identidad razonable, sin convertirla en barrera). Implementados en `/arrepentimiento` y `/baja`, enlazados en una barra fija en todo el sitio (`RootLayout`) y en una sección propia de la home.
+
+Como el aportante no tiene cuenta ni login, la única verificación disponible es el email con el que pagó — cualquiera que lo conozca puede buscar y accionar sobre esos registros. Es la misma barrera (baja) que ya existe para todo lo demás en el producto, y una verificación más dura (DNI, código por SMS) agregaría fricción que la Disposición 3/2026 prohíbe. Si esto no es suficiente para el caso de uso real, hay que sumar una verificación por email (link de confirmación) antes de ejecutar la acción — hoy no existe infraestructura de envío de mail en el proyecto.
+
+**Importante:** el plazo de 10 días corridos que usa `/arrepentimiento` (`src/lib/consumer-rights.ts`) es el piso general de la Ley 24.240 art. 34 — no verifiqué si Disposición 954/2025 fija un plazo distinto para este tipo de producto. Confirmar antes de lanzar.
+
 ## Moneda
 
 Mercado Pago Argentina liquida en ARS. Un creador define el precio de su copita en **USD de referencia** (por defecto 1). Al momento del cobro, `src/lib/fx.ts` resuelve la cotización oficial del día (dolarapi.com, con fallback a `USD_ARS_FALLBACK_RATE`) y `src/lib/pricing.ts` calcula el monto real en ARS, redondeado a un número prolijo.
@@ -39,7 +47,7 @@ Mercado Pago Argentina liquida en ARS. Un creador define el precio de su copita 
 Tres niveles, cada uno cubre lo que el anterior no puede:
 
 - **Unit** (`apps/web/src/lib/*.test.ts`): funciones puras — fee, redondeo de precio, cifrado, hash de contraseña, cotización FX (con `fetch` mockeado). No tocan base de datos ni red real.
-- **Integración** (`apps/web/tests/integration/*.test.ts`): llaman a los route handlers reales (`register`, `login`, `checkout/copita`, `webhooks/mercadopago`) contra una base Postgres de verdad, con `fetch` mockeado solo para las llamadas salientes a Mercado Pago. Corren contra `TEST_DATABASE_URL`, nunca contra `DATABASE_URL`. **Quedan afuera a propósito** las rutas que dependen de `cookies()`/`headers()` de Next (`/api/panel/perfil`, la conexión OAuth de Mercado Pago) — esas APIs solo funcionan dentro de un request real de Next, así que las cubre el e2e.
+- **Integración** (`apps/web/tests/integration/*.test.ts`): llaman a los route handlers reales (`register`, `login`, `checkout/copita`, `webhooks/mercadopago`, cancelación/reembolso de `self-service`) contra una base Postgres de verdad, con `fetch` mockeado solo para las llamadas salientes a Mercado Pago. Corren contra `TEST_DATABASE_URL`, nunca contra `DATABASE_URL`. **Quedan afuera a propósito** las rutas que dependen de `cookies()`/`headers()` de Next (`/api/panel/perfil`, la conexión OAuth de Mercado Pago) — esas APIs solo funcionan dentro de un request real de Next, así que las cubre el e2e.
 - **E2E** (`apps/web/e2e/*.spec.ts`, Playwright): recorre la app real en un navegador (registro → panel → editar perfil → perfil público → logout) contra un `next dev` levantado para el test. No depende de credenciales reales de Mercado Pago — verifica el estado "no conectado".
 
 Setup local:

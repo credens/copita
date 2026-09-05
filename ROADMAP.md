@@ -87,6 +87,7 @@ Confirmado contra la documentación oficial: **Preapproval no admite `marketplac
 ## Fase 8 — Pulido de lanzamiento (placeholders)
 
 - [ ] Términos y condiciones, política de privacidad, política de reembolsos → páginas creadas (`/terminos`, `/privacidad`, `/reembolsos`) con contenido de **borrador**, marcadas como pendientes de asesoría legal
+- [x] **Botón de arrepentimiento** y **botón de baja de servicio** (Disposición 954/2025 y 3/2026): visibles desde el primer acceso en una barra fija en todo el sitio + sección propia en la home. `/arrepentimiento` reembolsa una copita real vía la API de Mercado Pago (ventana de 10 días corridos, Ley 24.240 art. 34 — **confirmar si Disposición 954/2025 fija un plazo distinto**); `/baja` cancela una suscripción del Club real vía `Preapproval`. Verificación del aportante = email con el que pagó, sin cuenta ni login (no hay otro dato disponible, y una barrera de verificación más dura violaría Disposición 3/2026)
 - [ ] Analítica de producto (altas de creadores, conversión de visita → copita)
 - [ ] Responsive / accesibilidad del perfil público y el checkout
 - [x] Aplicar la dirección **Recibo** al sitio real — implementada en `apps/web/src/app/globals.css` y usada en todas las páginas
