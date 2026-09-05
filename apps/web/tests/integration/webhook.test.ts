@@ -109,3 +109,84 @@ test("webhook de Mercado Pago", { skip: !integrationTestsSafe && "set TEST_DATAB
     assert.equal(response.status, 404);
   });
 });
+
+test("webhook: cobro y reversión de la multa +18 sobre una copita", { skip: !integrationTestsSafe && "set TEST_DATABASE_URL (containing 'test') to run integration tests" }, async (t) => {
+  const db = await getTestDb();
+  const { encryptSecret } = await import("../../src/lib/secrets");
+  const { POST: webhook } = await import("../../src/app/api/webhooks/mercadopago/route");
+  const { NextRequest } = await import("next/server");
+
+  const suffix = randomUUID().slice(0, 8);
+  const username = `finewebhook${suffix}`;
+  const originalFetch = globalThis.fetch;
+
+  const creator = await db.user.create({
+    data: {
+      name: "Fine Webhook Creator",
+      email: `finewebhook-${suffix}@example.com`,
+      passwordHash: "x",
+      username,
+      mpConnected: true,
+      mpAccessToken: encryptSecret("TEST-fake-token"),
+      mpTokenExpiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+    },
+  });
+  const violation = await db.contentViolation.create({ data: { creatorId: creator.id, reason: "test" } });
+  const copita = await db.copita.create({
+    data: {
+      creatorId: creator.id,
+      amount: 4000,
+      amountUsdRef: 4,
+      fxRateUsed: 1000,
+      quantity: 4,
+      senderEmail: "aportante@example.com",
+      idempotencyKey: randomUUID(),
+      providerPaymentId: "pref-fine",
+      contentViolationId: violation.id,
+      finePortionArs: 3420,
+      finePortionUsd: 3.42,
+    },
+  });
+  await db.commission.create({ data: { copitaId: copita.id, rateBps: 500, baseAmount: 4000, amount: 3620 } });
+
+  t.after(async () => {
+    globalThis.fetch = originalFetch;
+    await db.paymentEvent.deleteMany({ where: { copitaId: copita.id } });
+    await db.commission.deleteMany({ where: { copitaId: copita.id } });
+    await db.copita.deleteMany({ where: { id: copita.id } });
+    await db.contentViolation.deleteMany({ where: { id: violation.id } });
+    await db.user.deleteMany({ where: { id: creator.id } });
+    await db.$disconnect();
+  });
+
+  function postWebhook(payload: unknown, headers: Record<string, string>) {
+    return webhook(
+      new NextRequest(`http://localhost/api/webhooks/mercadopago?creator=${username}`, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(payload) }),
+    );
+  }
+  function mockRemote(status: string) {
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/v1/payments/pay-fine")) return new Response(JSON.stringify({ id: "pay-fine", status, external_reference: copita.id }), { status: 200 });
+      throw new Error(`unexpected fetch to ${url}`);
+    }) as typeof fetch;
+  }
+
+  await t.test("aprobar la copita suma finePortionUsd a collectedUsd de la multa", async () => {
+    mockRemote("approved");
+    const response = await postWebhook({ id: "evt-fine-approved", type: "payment", data: { id: "pay-fine" } }, { "x-signature": signatureHeader("pay-fine", "req-fine-1"), "x-request-id": "req-fine-1" });
+    assert.equal(response.status, 200);
+
+    const updatedViolation = await db.contentViolation.findUnique({ where: { id: violation.id } });
+    assert.equal(Number(updatedViolation?.collectedUsd), 3.42);
+  });
+
+  await t.test("reembolsar la misma copita después revierte lo cobrado de la multa", async () => {
+    mockRemote("refunded");
+    const response = await postWebhook({ id: "evt-fine-refunded", type: "payment", data: { id: "pay-fine" } }, { "x-signature": signatureHeader("pay-fine", "req-fine-2"), "x-request-id": "req-fine-2" });
+    assert.equal(response.status, 200);
+
+    const updatedViolation = await db.contentViolation.findUnique({ where: { id: violation.id } });
+    assert.equal(Number(updatedViolation?.collectedUsd), 0);
+  });
+});

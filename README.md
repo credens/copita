@@ -48,6 +48,14 @@ Avatar y banner se suben directo a S3 (o compatible: MinIO, R2, DO Spaces) vía 
 
 Sin `S3_*` configurado en el entorno, la carga falla con un mensaje claro en el panel — el resto del sitio sigue andando igual.
 
+## Multa por contenido +18 no declarado
+
+No hay clasificador de contenido automático — un admin flaguea manualmente desde `/admin` cuando detecta +18 sin declarar (`ContentViolation`, `src/lib/content-violations.ts`). Devenga **10 USD de referencia por día** (el equivalente a "10 copitas" al valor base, no al precio particular del creador) desde que se detecta hasta que se resuelve.
+
+Cómo se cobra de verdad: Copita no puede debitarle plata a un creador fuera de una transacción — el dinero nunca pasa por una cuenta de Copita. Así que la deuda pendiente se suma como un extra sobre el `marketplace_fee` normal en las **próximas copitas reales** del creador (tope: 90% de lo que quede después de la comisión normal, para no dejarlo en $0 en una sola copita — ver `checkout/copita/route.ts`). Si esa copita se reembolsa, lo cobrado por la multa también se revierte (webhook).
+
+Declarar el perfil como +18 en `/panel/perfil` resuelve la multa sola y corta que siga creciendo — lo ya devengado se sigue debiendo y cobrando igual.
+
 ## Tests
 
 Tres niveles, cada uno cubre lo que el anterior no puede:

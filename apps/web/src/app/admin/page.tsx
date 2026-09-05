@@ -1,14 +1,9 @@
 import { currentUser } from "@/lib/auth";
+import { isPlatformAdmin } from "@/lib/platform-admin";
+import { accruedFineUsd, outstandingFineUsd } from "@/lib/content-violations";
 import { db } from "@copita/db";
 import { redirect, notFound } from "next/navigation";
-
-function isPlatformAdmin(email: string) {
-  const list = (process.env.PLATFORM_ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  return list.includes(email.toLowerCase());
-}
+import { ContentViolationsPanel } from "./content-violations-panel";
 
 // Fase 6 (scaffold funcional): totales reales de la plataforma. Falta la
 // página de estado por creador (conectado / con error de token) y el proceso
@@ -18,16 +13,26 @@ export default async function AdminPage() {
   if (!user) redirect("/login");
   if (!isPlatformAdmin(user.email)) notFound();
 
-  const [collected, pendingCopita, pendingSubscription, copitaCount, activeSubscriptions, creatorCount] = await Promise.all([
+  const [collected, pendingCopita, pendingSubscription, copitaCount, activeSubscriptions, creatorCount, activeViolations] = await Promise.all([
     db.commission.aggregate({ where: { status: "COLLECTED" }, _sum: { amount: true } }),
     db.commission.aggregate({ where: { status: "PENDING", copitaId: { not: null } }, _sum: { amount: true } }),
     db.commission.aggregate({ where: { status: "PENDING", subscriptionPaymentId: { not: null } }, _sum: { amount: true } }),
     db.copita.count({ where: { status: "APPROVED" } }),
     db.subscription.findMany({ where: { status: "AUTHORIZED" }, select: { amount: true } }),
     db.user.count({ where: { mpConnected: true } }),
+    db.contentViolation.findMany({ where: { resolvedAt: null }, include: { creator: { select: { username: true } } }, orderBy: { detectedAt: "asc" } }),
   ]);
 
   const mrr = activeSubscriptions.reduce((sum, s) => sum + Number(s.amount), 0);
+
+  const violations = activeViolations.map((v) => ({
+    id: v.id,
+    username: v.creator.username,
+    reason: v.reason,
+    detectedAt: v.detectedAt.toISOString(),
+    accruedUsd: accruedFineUsd(v),
+    outstandingUsd: outstandingFineUsd({ ...v, collectedUsd: Number(v.collectedUsd) }),
+  }));
 
   return (
     <div className="container" style={{ paddingTop: 40, paddingBottom: 40 }}>
@@ -58,6 +63,9 @@ export default async function AdminPage() {
           <h2>{creatorCount}</h2>
         </div>
       </div>
+
+      <h2 style={{ marginTop: 40 }}>Multas por contenido +18 no declarado</h2>
+      <ContentViolationsPanel violations={violations} />
     </div>
   );
 }

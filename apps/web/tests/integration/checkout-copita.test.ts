@@ -76,6 +76,52 @@ test("checkout de copita", { skip: !integrationTestsSafe && "set TEST_DATABASE_U
     assert.equal(copita?.commission?.status, "PENDING");
   });
 
+  await t.test("adds the outstanding +18 fine on top of the normal fee when the creator has an active content violation", async () => {
+    const username = `finewip${suffix}`;
+    const creator = await db.user.create({
+      data: {
+        name: "Fine Creator",
+        email: `fine-${suffix}@example.com`,
+        passwordHash: "x",
+        username,
+        mpConnected: true,
+        mpAccessToken: encryptSecret("TEST-fake-token"),
+        mpTokenExpiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+        copitaPriceUsd: 1,
+      },
+    });
+    createdUserIds.push(creator.id);
+    // 3 días activa, sin nada cobrado todavía -> 30 USD de deuda pendiente.
+    const violation = await db.contentViolation.create({
+      data: { creatorId: creator.id, reason: "test", detectedAt: new Date(Date.now() - 3 * 24 * 60 * 60_000) },
+    });
+
+    let capturedBody: { marketplace_fee?: number } = {};
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("dolarapi.com")) return new Response(JSON.stringify({ venta: 1000 }), { status: 200 });
+      if (url.includes("api.mercadopago.com/checkout/preferences")) {
+        capturedBody = JSON.parse(String(init?.body));
+        return new Response(JSON.stringify({ id: "pref-fine", init_point: "https://mp.example/init" }), { status: 200 });
+      }
+      throw new Error(`unexpected fetch to ${url}`);
+    }) as typeof fetch;
+
+    // 4 copitas * $1 USD * 1000 ARS/USD = 4000 ARS. Comisión normal 5% = 200.
+    // Deuda de 30 USD = 30000 ARS, muy por encima de lo que deja la copita
+    // (4000 - 200 = 3800), así que se topea al 90% de ese remanente (3420).
+    const response = await postCheckout({ username, quantity: 4, senderEmail: "aportante@example.com" });
+    assert.equal(response.status, 200);
+
+    assert.equal(capturedBody.marketplace_fee, 200 + 3420);
+
+    const copita = await db.copita.findFirst({ where: { creatorId: creator.id, contentViolationId: violation.id }, include: { commission: true } });
+    assert.ok(copita);
+    assert.equal(Number(copita?.finePortionArs), 3420);
+    assert.equal(Number(copita?.finePortionUsd), 3.42);
+    assert.equal(Number(copita?.commission?.amount), 200 + 3420);
+  });
+
   await t.test("persists the Copita with the raw error response when Mercado Pago rejects the preference", async () => {
     const username = `mpfails${suffix}`;
     const creator = await db.user.create({

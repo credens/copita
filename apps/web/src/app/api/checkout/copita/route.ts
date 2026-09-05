@@ -5,6 +5,7 @@ import { z } from "zod";
 import { sellerAccessToken } from "@/lib/mercadopago";
 import { platformFeeAmount, feeRateBps } from "@/lib/platform-fee";
 import { copitaAmountArs } from "@/lib/pricing";
+import { computeFinePortion, outstandingFineUsd } from "@/lib/content-violations";
 
 const inputSchema = z.object({
   username: z.string().trim().toLowerCase().min(1),
@@ -26,6 +27,12 @@ export async function POST(request: NextRequest) {
   const fee = platformFeeAmount(amount, creator);
   const idempotencyKey = randomUUID();
 
+  const activeViolation = await db.contentViolation.findFirst({ where: { creatorId: creator.id, resolvedAt: null } });
+  const { finePortionArs, finePortionUsd } = activeViolation
+    ? computeFinePortion({ outstandingUsd: outstandingFineUsd({ ...activeViolation, collectedUsd: Number(activeViolation.collectedUsd) }), amountArs: amount, normalFeeArs: fee, fxRateUsed })
+    : { finePortionArs: 0, finePortionUsd: 0 };
+  const totalFee = fee + finePortionArs;
+
   const copita = await db.$transaction(async (tx) => {
     const created = await tx.copita.create({
       data: {
@@ -38,9 +45,12 @@ export async function POST(request: NextRequest) {
         senderName,
         senderEmail,
         idempotencyKey,
+        contentViolationId: activeViolation?.id,
+        finePortionArs: finePortionArs > 0 ? finePortionArs : null,
+        finePortionUsd: finePortionUsd > 0 ? finePortionUsd : null,
       },
     });
-    await tx.commission.create({ data: { copitaId: created.id, rateBps: feeRateBps(creator), baseAmount: amount, amount: fee } });
+    await tx.commission.create({ data: { copitaId: created.id, rateBps: feeRateBps(creator), baseAmount: amount, amount: totalFee } });
     return created;
   });
 
@@ -52,7 +62,7 @@ export async function POST(request: NextRequest) {
     body: JSON.stringify({
       items: [{ id: copita.id, title: `Copita para @${creator.username}`, quantity: 1, unit_price: amount, currency_id: "ARS" }],
       payer: { email: senderEmail },
-      marketplace_fee: fee,
+      marketplace_fee: totalFee,
       external_reference: copita.id,
       notification_url: `${appUrl}/api/webhooks/mercadopago?creator=${creator.username}`,
       back_urls: { success: `${backBase}?estado=exitoso`, failure: `${backBase}?estado=fallido`, pending: `${backBase}?estado=pendiente` },

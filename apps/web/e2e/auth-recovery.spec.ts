@@ -52,3 +52,33 @@ test("cambiar contraseña con la actual incorrecta muestra error", async ({ page
   await page.getByRole("button", { name: "Cambiar contraseña" }).click();
   await expect(page.getByText("La contraseña actual no es correcta")).toBeVisible();
 });
+
+test("cambiar contraseña con la actual correcta funciona y la nueva sirve para volver a entrar", async ({ page }) => {
+  const suffix = Date.now();
+  const email = `seg-ok-${suffix}@example.com`;
+  await page.setExtraHTTPHeaders({ "x-forwarded-for": `198.51.100.${(suffix + 2) % 255}` });
+
+  await page.goto("/registro");
+  await page.getByLabel("Nombre").fill("Seguridad OK E2E");
+  await page.getByLabel(/Usuario/).fill(`segok${suffix}`);
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Contraseña").fill("password1234");
+  await page.getByRole("button", { name: "Crear mi perfil" }).click();
+  await expect(page).toHaveURL(/\/panel$/);
+
+  await page.goto("/panel/seguridad");
+  await page.getByLabel("Contraseña actual").fill("password1234");
+  await page.getByLabel("Contraseña nueva").fill("una-contraseña-mas-nueva");
+  await page.getByRole("button", { name: "Cambiar contraseña" }).click();
+  await expect(page.getByText("Contraseña actualizada ✓")).toBeVisible();
+
+  await page.goto("/panel");
+  await page.getByRole("button", { name: "Cerrar sesión" }).click();
+  await expect(page).toHaveURL("/");
+
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Contraseña").fill("una-contraseña-mas-nueva");
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await expect(page).toHaveURL(/\/panel$/);
+});

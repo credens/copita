@@ -3,18 +3,20 @@ import { db } from "@copita/db";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { EmailVerificationNotice } from "./email-verification-notice";
+import { accruedFineUsd, outstandingFineUsd } from "@/lib/content-violations";
 
 export default async function PanelPage() {
   const user = await currentUser();
   if (!user) redirect("/login");
 
-  const [copitaStats, activeSubscriptions, pendingCommission] = await Promise.all([
+  const [copitaStats, activeSubscriptions, pendingCommission, activeViolation] = await Promise.all([
     db.copita.aggregate({ where: { creatorId: user.id, status: "APPROVED" }, _sum: { amount: true }, _count: true }),
     db.subscription.count({ where: { creatorId: user.id, status: "AUTHORIZED" } }),
     db.commission.aggregate({
       where: { status: "PENDING", subscriptionPayment: { subscription: { creatorId: user.id } } },
       _sum: { amount: true },
     }),
+    db.contentViolation.findFirst({ where: { creatorId: user.id, resolvedAt: null } }),
   ]);
 
   return (
@@ -25,6 +27,15 @@ export default async function PanelPage() {
       </p>
 
       <EmailVerificationNotice verified={Boolean(user.emailVerifiedAt)} />
+
+      {activeViolation && (
+        <div className="error-banner">
+          <strong>Multa activa: contenido +18 no declarado.</strong> Se te está sumando ${accruedFineUsd(activeViolation).toLocaleString("es-AR")}{" "}
+          USD por día (${outstandingFineUsd({ ...activeViolation, collectedUsd: Number(activeViolation.collectedUsd) }).toLocaleString("es-AR")}{" "}
+          USD pendiente de cobrar en tus próximas copitas) desde el {activeViolation.detectedAt.toLocaleDateString("es-AR")}. Declará tu perfil como{" "}
+          +18 en <Link href="/panel/perfil">Editar mi perfil</Link> para que deje de crecer — lo ya devengado igual se sigue cobrando.
+        </div>
+      )}
 
       {!user.mpConnected ? (
         <div className="card" style={{ borderColor: "var(--coral)" }}>

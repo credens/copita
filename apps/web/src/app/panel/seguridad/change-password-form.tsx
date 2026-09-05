@@ -12,14 +12,17 @@ export function ChangePasswordForm() {
     setError(null);
     setDone(false);
     setLoading(true);
-    const form = new FormData(event.currentTarget);
+    // event.currentTarget se vuelve null después de un await — guardar la
+    // referencia antes, no leerla después de la llamada async.
+    const formEl = event.currentTarget;
+    const form = new FormData(formEl);
     const body = { currentPassword: form.get("currentPassword"), newPassword: form.get("newPassword") };
     const response = await fetch("/api/auth/change-password", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const data = await response.json().catch(() => ({}));
     setLoading(false);
     if (!response.ok) return setError(data.error ?? "No se pudo cambiar la contraseña");
     setDone(true);
-    event.currentTarget.reset();
+    formEl.reset();
   }
 
   return (

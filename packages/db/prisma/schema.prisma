@@ -88,8 +88,32 @@ model User {
   subscriptions Subscription[]
   posts         Post[]
   authTokens    AuthToken[]
+  contentViolations ContentViolation[]
 
   @@index([username])
+}
+
+// Multa por subir contenido +18 sin declarar el perfil como tal (ver
+// src/lib/content-violations.ts). La carga un admin desde /admin — no hay
+// clasificador de contenido automático. Se resuelve sola cuando el creador
+// tilda matureContent en su perfil, pero lo ya devengado sigue debiéndose.
+model ContentViolation {
+  id           String    @id @default(cuid())
+  creatorId    String
+  reason       String
+  detectedAt   DateTime  @default(now())
+  resolvedAt   DateTime?
+  // Cuánto de la multa ya se retuvo de verdad, en USD de referencia — se
+  // cobra de a poco como un extra sobre la comisión normal en las próximas
+  // copitas reales del creador (ver checkout/copita y el webhook).
+  collectedUsd Decimal   @default(0) @db.Decimal(10, 2)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  creator User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  copitas Copita[]
+
+  @@index([creatorId, resolvedAt])
 }
 
 // Tokens de un solo uso para verificación de email y recuperación de
@@ -128,7 +152,15 @@ model Copita {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
+  // Si el creador tenía una multa de contenido +18 activa al momento del
+  // cobro, se le suma este extra al marketplace_fee normal — ver
+  // src/lib/content-violations.ts. Null cuando no hay multa en curso.
+  contentViolationId String?
+  finePortionArs      Decimal? @db.Decimal(12, 2)
+  finePortionUsd      Decimal? @db.Decimal(10, 2)
+
   creator     User          @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  contentViolation ContentViolation? @relation(fields: [contentViolationId], references: [id], onDelete: SetNull)
   commission  Commission?
   events      PaymentEvent[]
 

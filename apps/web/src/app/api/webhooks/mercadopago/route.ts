@@ -73,6 +73,16 @@ async function handleCopitaPayment(request: NextRequest, creator: NonNullable<Aw
               : {},
       });
     }
+    // El extra de multa +18 (si lo había) recién se da por cobrado cuando el
+    // pago se aprueba de verdad — y se revierte si el pago se cae después de
+    // haber estado aprobado, igual que la comisión normal.
+    if (copita.contentViolationId && copita.finePortionUsd) {
+      if (copita.status !== "APPROVED" && mapped === "APPROVED") {
+        await tx.contentViolation.update({ where: { id: copita.contentViolationId }, data: { collectedUsd: { increment: copita.finePortionUsd } } });
+      } else if (copita.status === "APPROVED" && ["REFUNDED", "REJECTED", "CANCELLED"].includes(mapped)) {
+        await tx.contentViolation.update({ where: { id: copita.contentViolationId }, data: { collectedUsd: { decrement: copita.finePortionUsd } } });
+      }
+    }
     await tx.paymentEvent.update({ where: { id: event.id }, data: { copitaId: copita.id, processedAt: new Date() } });
   });
   return NextResponse.json({ ok: true });

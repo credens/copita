@@ -50,5 +50,12 @@ export async function PATCH(request: Request) {
     },
   });
 
+  // Declarar +18 corta la acumulación de la multa (lo ya devengado sigue
+  // debiéndose, ver src/lib/content-violations.ts) — no hace falta pasar por
+  // un admin para esto, es la corrección que la multa buscaba en primer lugar.
+  if (data.matureContent) {
+    await db.contentViolation.updateMany({ where: { creatorId: user.id, resolvedAt: null }, data: { resolvedAt: new Date() } });
+  }
+
   return NextResponse.json({ ok: true });
 }
