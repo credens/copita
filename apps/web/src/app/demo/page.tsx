@@ -24,8 +24,8 @@ export default function DemoPage() {
   return (
     <div>
       <div className="notice-banner" style={{ margin: "16px 20px 0", borderRadius: 4 }}>
-        Esta es una página de ejemplo con datos ficticios — así se ve un perfil de creador ya armado. <Link href="/registro">Creá el tuyo</Link> ·{" "}
-        <Link href="/demo-patreon">Ver la misma página con otro estilo →</Link>
+        Esta es una página de ejemplo con datos ficticios — así se ve un perfil de creador ya armado.{" "}
+        <Link href="/registro">Creá el tuyo</Link>.
       </div>
 
       <div
