@@ -1,0 +1,48 @@
+# Todo-en-uno para un solo servidor: app + Postgres con volumen persistente.
+# Para producción real a mayor escala, un Postgres gestionado (RDS, Neon,
+# Supabase, DigitalOcean Managed DB) saca de encima los backups/HA/upgrades —
+# esto es la opción simple para un VPS chico o para probar el stack completo
+# en local sin instalar Postgres a mano.
+#
+# Uso:
+#   cp .env.example .env   # completar MP, S3, etc. — DATABASE_URL se arma solo, ver abajo
+#   docker compose up -d
+#
+# Backups: ver scripts/backup-postgres.sh (corre `docker compose exec postgres
+# pg_dump` si detecta que Postgres corre en este mismo compose).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: copita
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-copita}
+      POSTGRES_DB: copita
+    volumes:
+      - copita_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U copita"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "127.0.0.1:5432:5432" # solo localhost — no exponer Postgres a internet
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Fuerza el host/usuario del Postgres de este compose, aunque el .env
+      # tenga otra cosa apuntada (ej. copiado de un entorno sin Docker).
+      DATABASE_URL: postgresql://copita:${POSTGRES_PASSWORD:-copita}@postgres:5432/copita?schema=public
+    ports:
+      - "3000:3000"
+
+volumes:
+  copita_postgres_data:

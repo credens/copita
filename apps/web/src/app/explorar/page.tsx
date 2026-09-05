@@ -2,8 +2,11 @@ import { db } from "@copita/db";
 import Link from "next/link";
 
 // Sin esto, Next la detecta como estática (sin cookies/headers/searchParams)
-// y la congela con los creadores que existían en el momento del build.
-export const revalidate = 60;
+// y la congela con los creadores que existían en el momento del build. Se
+// eligió force-dynamic (siempre en vivo) en vez de `revalidate` para no
+// depender de una base alcanzable durante el build — necesario para poder
+// buildear la imagen de Docker sin un Postgres real a mano.
+export const dynamic = "force-dynamic";
 
 // Fase 7 (scaffold funcional): lista simple de creadores conectados. Falta
 // buscador por texto, categorías reales y paginación — hoy es un `take: 60`.

@@ -1,0 +1,8 @@
+[Unit]
+Description=Backup diario de Postgres de Copita
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/root/copita/shared/.env
+ExecStart=/root/copita/shared/bin/backup-postgres.sh
