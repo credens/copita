@@ -22,6 +22,9 @@ env:
   MP_USE_SANDBOX: "true"
   USD_ARS_FALLBACK_RATE: "1000"
   PLATFORM_ADMIN_EMAILS: admin@copita.ar
+  # `secrets` no se puede usar directamente en `if:` — se refleja acá para
+  # poder chequear "¿está configurado?" sin exponer el valor en los logs.
+  HAS_PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST != '' }}
 
 jobs:
   verify-and-deploy:
@@ -79,7 +82,7 @@ jobs:
           tar -C /tmp/copita -czf /tmp/release.tgz .
 
       - name: Deploy to production
-        if: ${{ secrets.PRODUCTION_HOST != '' }}
+        if: ${{ env.HAS_PRODUCTION_HOST == 'true' }}
         env:
           SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
           SSH_HOST_KEY: ${{ secrets.PRODUCTION_SSH_HOST_KEY }}
@@ -96,5 +99,5 @@ jobs:
           ssh -p "$PORT" "$USER@$HOST" "/root/copita/shared/bin/deploy-pm2-release.sh $RELEASE"
 
       - name: Sin secretos de producción — deploy salteado
-        if: ${{ secrets.PRODUCTION_HOST == '' }}
+        if: ${{ env.HAS_PRODUCTION_HOST != 'true' }}
         run: echo "PRODUCTION_HOST no está configurado todavía. Build y tests OK, pero no se desplegó nada. Ver deploy/README.md."
