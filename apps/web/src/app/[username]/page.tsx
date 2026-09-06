@@ -1,9 +1,39 @@
 import { db } from "@copita/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { CopitaForm } from "./copita-form";
 import { SubscribeButton } from "./subscribe-button";
 import { AgeGateScreen, isAgeGateConfirmed } from "./age-gate";
+
+// Consulta aparte de la de abajo (liviana, solo estos campos) porque
+// generateMetadata corre en paralelo a la página, no adentro — no hay forma
+// de reusar acá lo que trae CreatorProfilePage.
+export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
+  const { username } = await params;
+  const creator = await db.user.findUnique({ where: { username }, select: { name: true, username: true, bio: true, avatarUrl: true, matureContent: true } });
+  if (!creator) return {};
+
+  // Mismo cuidado que el age-gate de la página: un crawler nunca tiene la
+  // cookie de confirmación, así que acá SIEMPRE hay que tratarlo como no
+  // confirmado — mostrar el nombre/bio real en una preview de link sería el
+  // mismo data leak que ya se corrigió en el cuerpo de la página.
+  if (creator.matureContent) {
+    return { title: `@${creator.username} — Copita`, description: "Este perfil tiene contenido para mayores de 18 años." };
+  }
+
+  const description = creator.bio?.trim().slice(0, 160) || `Invitale una copita a ${creator.name} en Copita.`;
+  const appUrl = process.env.APP_URL;
+  const url = appUrl ? `${appUrl}/${creator.username}` : undefined;
+  const images = creator.avatarUrl ? [creator.avatarUrl] : undefined;
+
+  return {
+    title: `${creator.name} (@${creator.username}) — Copita`,
+    description,
+    openGraph: { title: creator.name, description, url, images, type: "profile" },
+    twitter: { card: "summary", title: creator.name, description, images },
+  };
+}
 
 export default async function CreatorProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
