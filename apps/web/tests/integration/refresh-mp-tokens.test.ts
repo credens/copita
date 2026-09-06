@@ -95,6 +95,8 @@ test("job de refresh proactivo de tokens de Mercado Pago", { skip: !integrationT
 
     const failedCreator = await db.user.findUnique({ where: { id: willFail.id } });
     assert.equal(decryptSecret(failedCreator!.mpAccessToken!), `TEST-old-token-willfail${suffix}`); // no cambió
+    assert.equal(failedCreator!.mpTokenError, "invalid_grant"); // queda registrado para /admin/creadores
+    assert.ok(failedCreator!.mpTokenErrorAt);
 
     const okCreator = await db.user.findUnique({ where: { id: willSucceed.id } });
     assert.equal(decryptSecret(okCreator!.mpAccessToken!), "TEST-ok-token");

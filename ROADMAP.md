@@ -73,7 +73,7 @@ Confirmado contra la documentación oficial: **Preapproval no admite `marketplac
 ## Fase 6 — Operación de la plataforma (vos, como dueño) (parcial)
 
 - [x] Dashboard interno (`/admin`, gateado por `PLATFORM_ADMIN_EMAILS`): comisión cobrada y pendiente, copitas totales, MRR, creadores conectados
-- [ ] Página de estado de cada creador (conectado a MP / pendiente / con error de token)
+- [x] Página de estado de cada creador (conectado a MP / pendiente / con error de token) → `/admin/creadores`, apoyada en `mpConnectionStatus` (`src/lib/mercadopago.ts`) y en el nuevo `mpTokenError`/`mpTokenErrorAt` que graba `sellerAccessToken` cuando Mercado Pago rechaza una renovación
 - [ ] Proceso de soporte para pagos rechazados o reembolsos (existe endpoint de cancelación de suscripción en `/api/panel/suscripcion`, falta flujo de soporte completo)
 - [ ] Facturación propia: como plataforma cobrando comisión en Argentina, definir con un contador si corresponde monotributo/factura por la comisión retenida — **decisión de negocio, no técnica, sigue pendiente**
 
@@ -86,7 +86,7 @@ Confirmado contra la documentación oficial: **Preapproval no admite `marketplac
 
 ## Fase 8 — Pulido de lanzamiento (placeholders)
 
-- [ ] Términos y condiciones, política de privacidad, política de reembolsos → páginas creadas (`/terminos`, `/privacidad`, `/reembolsos`) con contenido de **borrador**, marcadas como pendientes de asesoría legal
+- [x] Términos y condiciones, política de privacidad, política de reembolsos → `/terminos`, `/privacidad`, `/reembolsos` con el texto legal real provisto por el responsable de la plataforma (GRUPO FESA S. CAP I SECC IV, ver `apps/web/src/lib/legal-info.ts`), ya sin placeholders ni banner de "completar datos"
 - [x] **Botón de arrepentimiento** y **botón de baja de servicio** (Disposición 954/2025 y 3/2026): visibles desde el primer acceso en una barra fija en todo el sitio + sección propia en la home. `/arrepentimiento` reembolsa una copita real vía la API de Mercado Pago (ventana de 10 días corridos, Ley 24.240 art. 34 — **confirmar si Disposición 954/2025 fija un plazo distinto**); `/baja` cancela una suscripción del Club real vía `Preapproval`. Verificación del aportante = email con el que pagó, sin cuenta ni login (no hay otro dato disponible, y una barrera de verificación más dura violaría Disposición 3/2026)
 - [ ] Analítica de producto (altas de creadores, conversión de visita → copita)
 - [ ] Responsive / accesibilidad del perfil público y el checkout

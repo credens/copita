@@ -77,6 +77,13 @@ model User {
   mpPublicKey      String?
   mpConnected      Boolean  @default(false)
   mpScope          String?
+  // Se completa cuando sellerAccessToken intenta renovar el token y Mercado
+  // Pago lo rechaza (ej. refresh_token revocado) — el creador necesita
+  // reconectar. Se limpia solo en la próxima renovación exitosa. Ver
+  // /admin/creadores, que usa esto para no depender solo de mpTokenExpiresAt
+  // (un token puede estar roto sin haber vencido todavía).
+  mpTokenError     String?
+  mpTokenErrorAt   DateTime?
 
   // Comisión de la plataforma sobre los cobros de este creador.
   feeType  String   @default("percent")

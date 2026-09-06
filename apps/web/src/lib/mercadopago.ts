@@ -15,11 +15,33 @@ export function needsTokenRenewal(creator: Pick<MpAccount, "mpTokenExpiresAt">, 
   return Boolean(creator.mpTokenExpiresAt && creator.mpTokenExpiresAt.getTime() <= now.getTime() + MP_TOKEN_RENEWAL_WINDOW_DAYS * 24 * 60 * 60_000);
 }
 
+export type MpConnectionStatus = "not_connected" | "token_error" | "renewal_due" | "connected";
+
+// Para /admin/creadores: no alcanza con mirar mpTokenExpiresAt, porque Mercado
+// Pago puede revocar un refresh_token (el creador desconectó la app desde su
+// cuenta de MP, por ejemplo) sin que el access_token todavía haya vencido —
+// eso solo se descubre al intentar renovar, y mpTokenError es donde queda ese
+// resultado.
+export function mpConnectionStatus(
+  creator: Pick<MpAccount, "mpAccessToken" | "mpTokenExpiresAt"> & { mpConnected: boolean; mpTokenError?: string | null },
+  now = new Date(),
+): MpConnectionStatus {
+  if (!creator.mpConnected || !creator.mpAccessToken) return "not_connected";
+  if (creator.mpTokenError) return "token_error";
+  if (needsTokenRenewal(creator, now)) return "renewal_due";
+  return "connected";
+}
+
+async function recordTokenError(creatorId: string, message: string) {
+  await db.user.update({ where: { id: creatorId }, data: { mpTokenError: message, mpTokenErrorAt: new Date() } });
+}
+
 export async function sellerAccessToken(creator: MpAccount) {
   if (!creator.mpAccessToken) throw new Error("Mercado Pago no está conectado");
   if (!needsTokenRenewal(creator)) return decryptSecret(creator.mpAccessToken);
   if (!creator.mpRefreshToken) {
     logger.error("mercadopago.token_refresh_missing_refresh_token", { creatorId: creator.id });
+    await recordTokenError(creator.id, "Falta el refresh token — hace falta reconectar Mercado Pago");
     throw new Error("Mercado Pago requiere reconexión");
   }
   const body = new URLSearchParams({
@@ -37,8 +59,10 @@ export async function sellerAccessToken(creator: MpAccount) {
   if (!response.ok || !token.access_token) {
     // Un creador con esto roto no puede cobrar hasta reconectar — es
     // exactamente el tipo de falla silenciosa que antes no se enteraba nadie.
-    logger.error("mercadopago.token_refresh_failed", { creatorId: creator.id, status: response.status, message: token.message });
-    throw new Error(token.message ?? "No se pudo renovar Mercado Pago");
+    const message = token.message ?? "No se pudo renovar Mercado Pago";
+    logger.error("mercadopago.token_refresh_failed", { creatorId: creator.id, status: response.status, message });
+    await recordTokenError(creator.id, message);
+    throw new Error(message);
   }
   await db.user.update({
     where: { id: creator.id },
@@ -48,6 +72,8 @@ export async function sellerAccessToken(creator: MpAccount) {
       mpAccessToken: encryptSecret(token.access_token),
       ...(token.refresh_token ? { mpRefreshToken: encryptSecret(token.refresh_token) } : {}),
       mpTokenExpiresAt: token.expires_in ? new Date(Date.now() + token.expires_in * 1000) : null,
+      mpTokenError: null,
+      mpTokenErrorAt: null,
     },
   });
   return token.access_token;

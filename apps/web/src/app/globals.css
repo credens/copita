@@ -169,6 +169,12 @@ select {
   background: var(--paper-alt);
 }
 
+.tag-danger {
+  border-color: var(--coral-ink);
+  background: #ffe5dd;
+  color: var(--coral-ink);
+}
+
 .error-banner {
   border: var(--line) solid var(--coral-ink);
   background: #ffe5dd;

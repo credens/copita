@@ -7,9 +7,8 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ContentViolationsPanel } from "./content-violations-panel";
 
-// Fase 6 (scaffold funcional): totales reales de la plataforma. Falta la
-// página de estado por creador (conectado / con error de token) y el proceso
-// de soporte para pagos rechazados — ver ROADMAP.md Fase 6.
+// Fase 6 (scaffold funcional): totales reales de la plataforma. Falta el
+// proceso de soporte para pagos rechazados — ver ROADMAP.md Fase 6.
 export default async function AdminPage() {
   const user = await currentUser();
   if (!user) redirect("/login");
@@ -40,11 +39,16 @@ export default async function AdminPage() {
 
   return (
     <div className="container" style={{ paddingTop: 40, paddingBottom: 40 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h1>Panel interno</h1>
-        <Link href="/admin/auditoria" className="btn">
-          Ver auditoría
-        </Link>
+        <div style={{ display: "flex", gap: 12 }}>
+          <Link href="/admin/creadores" className="btn">
+            Estado de Mercado Pago
+          </Link>
+          <Link href="/admin/auditoria" className="btn">
+            Ver auditoría
+          </Link>
+        </div>
       </div>
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
         <div className="card">
