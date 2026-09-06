@@ -66,7 +66,7 @@ test("webhook de Mercado Pago", { skip: !integrationTestsSafe && "set TEST_DATAB
     assert.equal(response.status, 401);
   });
 
-  await t.test("approves the payment, updates the Copita and collects the commission — then ignores the duplicate", async () => {
+  await t.test("approves the payment, updates the Copita, collects the commission y avisa al creador por mail — luego ignora el duplicado", async () => {
     globalThis.fetch = (async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes("/v1/payments/pay-999")) {
@@ -80,7 +80,18 @@ test("webhook de Mercado Pago", { skip: !integrationTestsSafe && "set TEST_DATAB
     const requestId = "req-2";
     const payload = { id: "evt-approved", type: "payment", action: "payment.updated", data: { id: dataId } };
 
-    const first = await postWebhook(payload, { "x-signature": signatureHeader(dataId, requestId), "x-request-id": requestId });
+    const capturedLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => capturedLogs.push(args.join(" "));
+
+    let first: Response;
+    let second: Response;
+    try {
+      first = await postWebhook(payload, { "x-signature": signatureHeader(dataId, requestId), "x-request-id": requestId });
+      second = await postWebhook(payload, { "x-signature": signatureHeader(dataId, requestId), "x-request-id": requestId });
+    } finally {
+      console.log = originalLog;
+    }
     assert.equal(first.status, 200);
     assert.equal(paymentsFetchCalls, 1);
 
@@ -90,9 +101,12 @@ test("webhook de Mercado Pago", { skip: !integrationTestsSafe && "set TEST_DATAB
     assert.equal(updated?.commission?.status, "COLLECTED");
     assert.ok(updated?.commission?.collectedAt);
 
+    // Sin SMTP configurado, mail.ts loguea en vez de mandar (ver mail.ts).
+    const mailLogs = capturedLogs.filter((line) => line.includes("Recibiste una copita") && line.includes(creator.email));
+    assert.equal(mailLogs.length, 1, "esperaba un solo aviso por mail al creador, no en el evento duplicado");
+
     // Mismo evento de nuevo (mismo provider+providerEventId+eventType): no debe volver a pegarle a la API de MP.
-    const second = await postWebhook(payload, { "x-signature": signatureHeader(dataId, requestId), "x-request-id": requestId });
-    assert.equal(second.status, 200);
+    assert.equal(second!.status, 200);
     assert.equal(paymentsFetchCalls, 1, "el evento duplicado no debería reconciliar de nuevo");
   });
 

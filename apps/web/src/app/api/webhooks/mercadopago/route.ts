@@ -3,6 +3,7 @@ import { db, PaymentStatus, SubscriptionStatus } from "@copita/db";
 import { sellerAccessToken } from "@/lib/mercadopago";
 import { fetchPreapproval } from "@/lib/mercadopago-subscriptions";
 import { feeRateBps, platformFeeAmount } from "@/lib/platform-fee";
+import { sendNewCopitaNotification } from "@/lib/mail";
 import { logger } from "@/lib/logger";
 import { requestIp } from "@/lib/rate-limit";
 import { distributedRateLimit } from "@/lib/distributed-rate-limit";
@@ -99,6 +100,25 @@ async function handleCopitaPayment(request: NextRequest, creator: NonNullable<Aw
     }
     await tx.paymentEvent.update({ where: { id: event.id }, data: { copitaId: copita.id, processedAt: new Date() } });
   });
+
+  // Fuera de la transacción a propósito: un mail lento o caído no puede
+  // hacer fallar la reconciliación del pago, que ya quedó confirmada arriba.
+  if (copita.status !== "APPROVED" && mapped === "APPROVED") {
+    try {
+      await sendNewCopitaNotification({
+        to: creator.email,
+        creatorName: creator.name,
+        senderName: copita.senderName,
+        message: copita.message,
+        amount: Number(copita.amount),
+        currency: copita.currency,
+        panelUrl: `${process.env.APP_URL ?? ""}/panel/copitas`,
+      });
+    } catch (error) {
+      logger.error("webhook.new_copita_notification_failed", { copitaId: copita.id, message: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }
 
