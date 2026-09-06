@@ -4,9 +4,19 @@ import { sellerAccessToken } from "@/lib/mercadopago";
 import { fetchPreapproval } from "@/lib/mercadopago-subscriptions";
 import { feeRateBps, platformFeeAmount } from "@/lib/platform-fee";
 import { logger } from "@/lib/logger";
+import { requestIp } from "@/lib/rate-limit";
+import { distributedRateLimit } from "@/lib/distributed-rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 
 type Payload = { id?: number | string; type?: string; action?: string; user_id?: number | string; data?: { id?: string } };
+
+// Generoso a propósito: Mercado Pago manda los webhooks siempre desde su
+// propia infraestructura (pocas IPs de origen), y un pico real de cobros
+// puede mandar muchos eventos juntos desde esa misma IP — esto no busca
+// limitar tráfico legítimo, solo cortar un flood/DoS antes de gastar CPU
+// parseando el body y calculando la firma HMAC de cada request.
+const WEBHOOK_RATE_LIMIT = 120;
+const WEBHOOK_RATE_WINDOW_MS = 60_000;
 
 function validSignature(request: NextRequest, dataId: string) {
   const secret = process.env.MP_WEBHOOK_SECRET;
@@ -179,6 +189,11 @@ async function handleWebhook(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const attempt = await distributedRateLimit(`webhook:mp:${requestIp(request)}`, WEBHOOK_RATE_LIMIT, WEBHOOK_RATE_WINDOW_MS);
+    if (!attempt.allowed) {
+      logger.warn("webhook.rate_limited", { ip: requestIp(request) });
+      return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429, headers: { "retry-after": String(attempt.retryAfter) } });
+    }
     return await handleWebhook(request);
   } catch (error) {
     // Sin esto, una excepción acá (ej. la base caída, un bug) solo se veía

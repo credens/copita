@@ -108,6 +108,23 @@ test("webhook de Mercado Pago", { skip: !integrationTestsSafe && "set TEST_DATAB
     );
     assert.equal(response.status, 404);
   });
+
+  await t.test("corta con 429 a una IP que ya agotó el rate limit del webhook, antes de validar la firma", async () => {
+    const { distributedRateLimit } = await import("../../src/lib/distributed-rate-limit");
+    const ip = `test-${randomUUID()}`;
+    // Agota el límite real (120/min, ver route.ts) para esta IP de prueba.
+    for (let i = 0; i < 120; i++) await distributedRateLimit(`webhook:mp:${ip}`, 120, 60_000);
+    t.after(() => db.requestLimit.deleteMany({ where: { key: `webhook:mp:${ip}` } }));
+
+    const response = await webhook(
+      new NextRequest(`http://localhost/api/webhooks/mercadopago`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": ip, "x-signature": "ts=1,v1=deadbeef" },
+        body: JSON.stringify({ id: "evt-flood", type: "payment", data: { id: "pay-flood" } }),
+      }),
+    );
+    assert.equal(response.status, 429);
+  });
 });
 
 test("webhook: cobro y reversión de la multa +18 sobre una copita", { skip: !integrationTestsSafe && "set TEST_DATABASE_URL (containing 'test') to run integration tests" }, async (t) => {
