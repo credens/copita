@@ -22,6 +22,7 @@
     "build:jobs": "esbuild scripts/refresh-mp-tokens.ts --bundle --platform=node --format=cjs --target=node22 --external:@prisma/client --outfile=dist-jobs/refresh-mp-tokens.cjs"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.49.0",
     "esbuild": "^0.28.2",
     "tsx": "^4.19.0"

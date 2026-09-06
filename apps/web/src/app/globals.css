@@ -6,6 +6,10 @@
   --ink: #141110;
   --coral: #ff5a3c;
   --coral-ink: #7a1f0e;
+  /* Mismo tono, más oscuro: --coral con texto blanco encima da un contraste
+     de 3.09:1 (axe-core lo marca "serious", WCAG AA pide 4.5:1 mínimo) — para
+     fondo sólido + texto blanco (botón primario, sticker) se usa este en vez. */
+  --coral-strong: #c93e21;
   --line: 3px;
   --shadow-offset: 6px;
   --radius: 2px;
@@ -98,7 +102,7 @@ select {
 }
 
 .btn-primary {
-  background: var(--coral);
+  background: var(--coral-strong);
   color: #fff;
 }
 
@@ -147,7 +151,7 @@ select {
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
-  background: var(--coral);
+  background: var(--coral-strong);
   color: #fff;
   border: var(--line) solid var(--ink);
   border-radius: 999px;

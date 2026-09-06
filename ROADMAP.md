@@ -50,7 +50,7 @@ Implementación de pagos con split ya resuelta y funcionando en un proyecto herm
 2. El cobro se crea con la cuenta del creador: Copita arma la preferencia de Checkout Pro usando el `access_token` del creador y agrega `marketplace_fee` (la comisión de Copita) en el mismo request.
 3. Mercado Pago separa la plata al cobrar: de un solo pago salen la comisión de MP, el `marketplace_fee` de Copita y el resto directo a la cuenta del creador. Nadie mueve un CVU a mano.
 4. Un webhook confirma antes de acreditar: Mercado Pago avisa por `x-signature` (HMAC), Copita valida la firma, pide el pago real a la API y recién ahí marca la copita como cobrada.
-- [ ] Mensaje/nombre opcional del que manda la copita, visible en el muro público
+- [x] Mensaje/nombre opcional del que manda la copita, visible en el muro público → `Copita.message`/`senderName`, capturado en `copita-form.tsx` y mostrado en `[username]/page.tsx`
 - [x] Página de agradecimiento post-pago (éxito / pendiente / fallido) — `/[username]/gracias`
 - [x] Panel del creador: historial de copitas recibidas y comisión retenida — `/panel/copitas`
 
@@ -67,7 +67,7 @@ Confirmado contra la documentación oficial: **Preapproval no admite `marketplac
 ## Fase 5 — Contenido exclusivo y comunidad (scaffold)
 
 - [x] Modelo `Post` con visibilidad `PUBLIC` / `CLUB` y página `/[username]/club` — **falta** el control de acceso real por membresía activa del aportante (hoy solo lista posts públicos, ver nota en la página)
-- [ ] Notificaciones al creador (email o push) por cada copita nueva
+- [x] Notificaciones al creador (email) por cada copita nueva → `sendNewCopitaNotification` (`src/lib/mail.ts`), disparado desde el webhook al aprobarse el pago. Push queda pendiente
 - [ ] Exportar/objetar historial de copitas (para que el creador lleve su propia contabilidad)
 
 ## Fase 6 — Operación de la plataforma (vos, como dueño) (parcial)
@@ -80,8 +80,8 @@ Confirmado contra la documentación oficial: **Preapproval no admite `marketplac
 ## Fase 7 — Descubrimiento y crecimiento (parcial)
 
 - [x] Página "Explorar creadores" (`/explorar`) — lista creadores conectados; falta categorías/tags como filtro real
-- [ ] Buscador de perfiles
-- [ ] SEO básico de perfiles públicos (OG tags, sitemap)
+- [x] Buscador de perfiles → `/explorar?q=`, filtra por nombre/usuario/bio/tags
+- [x] SEO básico de perfiles públicos (OG tags, sitemap) → `generateMetadata` en `[username]/page.tsx` (con el mismo resguardo del age-gate: un perfil +18 nunca expone nombre/bio real en la preview del link), `app/sitemap.ts` y `app/robots.ts`
 - [ ] Botón/widget embebible para poner en otros sitios ("mandame una copita")
 
 ## Fase 8 — Pulido de lanzamiento (placeholders)
@@ -89,7 +89,7 @@ Confirmado contra la documentación oficial: **Preapproval no admite `marketplac
 - [x] Términos y condiciones, política de privacidad, política de reembolsos → `/terminos`, `/privacidad`, `/reembolsos` con el texto legal real provisto por el responsable de la plataforma (GRUPO FESA S. CAP I SECC IV, ver `apps/web/src/lib/legal-info.ts`), ya sin placeholders ni banner de "completar datos"
 - [x] **Botón de arrepentimiento** y **botón de baja de servicio** (Disposición 954/2025 y 3/2026): visibles desde el primer acceso en una barra fija en todo el sitio + sección propia en la home. `/arrepentimiento` reembolsa una copita real vía la API de Mercado Pago (ventana de 10 días corridos, Ley 24.240 art. 34 — **confirmar si Disposición 954/2025 fija un plazo distinto**); `/baja` cancela una suscripción del Club real vía `Preapproval`. Verificación del aportante = email con el que pagó, sin cuenta ni login (no hay otro dato disponible, y una barrera de verificación más dura violaría Disposición 3/2026)
 - [ ] Analítica de producto (altas de creadores, conversión de visita → copita)
-- [ ] Responsive / accesibilidad del perfil público y el checkout
+- [ ] Responsive / accesibilidad del perfil público y el checkout — probado en viewport mobile (390x844) sin overflow horizontal y con un scan automatizado de accesibilidad (axe-core, `e2e/responsive-a11y.spec.ts`) sobre las páginas públicas, que encontró y corrigió un contraste insuficiente real en los botones primarios (`--coral-strong`, `globals.css`). **Sigue faltando probar en dispositivos reales** — el scan automatizado no reemplaza eso
 - [x] Aplicar la dirección **Recibo** al sitio real — implementada en `apps/web/src/app/globals.css` y usada en todas las páginas
 
 ---
