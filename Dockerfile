@@ -26,6 +26,7 @@ COPY . .
 # cliente contra el schema — no necesita una base alcanzable para esto.
 RUN npm run db:generate
 RUN npm run build
+RUN npm run build:jobs
 
 FROM base AS runner
 WORKDIR /app
@@ -36,6 +37,7 @@ COPY --from=builder /app/apps/web/public ./apps/web/public
 COPY --from=builder --chown=copita:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=copita:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/packages/db/prisma ./packages/db/prisma
+COPY --from=builder --chown=copita:nodejs /app/dist-jobs ./dist-jobs
 
 USER copita
 EXPOSE 3000

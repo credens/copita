@@ -1,5 +1,6 @@
 import { currentUser } from "@/lib/auth";
 import { isPlatformAdmin } from "@/lib/platform-admin";
+import { logAdminAction } from "@/lib/audit-log";
 import { db } from "@copita/db";
 import { NextResponse } from "next/server";
 
@@ -15,5 +16,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (violation.resolvedAt) return NextResponse.json({ ok: true });
 
   await db.contentViolation.update({ where: { id }, data: { resolvedAt: new Date() } });
+  await logAdminAction(admin.id, "content_violation_resolved", { targetType: "ContentViolation", targetId: id, metadata: { creatorId: violation.creatorId } });
   return NextResponse.json({ ok: true });
 }

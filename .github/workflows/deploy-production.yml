@@ -71,6 +71,7 @@ jobs:
       - run: npm run test:e2e
 
       - run: npm run build
+      - run: npm run build:jobs
 
       - name: Package standalone release
         run: |
@@ -79,6 +80,7 @@ jobs:
           cp -R apps/web/.next/static /tmp/copita/apps/web/.next/static
           cp -R apps/web/public /tmp/copita/apps/web/public
           cp -R packages/db/prisma /tmp/copita/packages/db/prisma
+          cp -R dist-jobs /tmp/copita/dist-jobs
           tar -C /tmp/copita -czf /tmp/release.tgz .
 
       - name: Deploy to production

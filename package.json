@@ -18,10 +18,12 @@
     "test:unit": "node --import tsx --test apps/web/src/lib/*.test.ts",
     "test:integration": "if [ -f .env.test ]; then set -a; . ./.env.test; set +a; fi; node --import tsx --test --test-concurrency=1 apps/web/tests/integration/*.test.ts",
     "test": "npm run test:unit && npm run test:integration",
-    "test:e2e": "if [ -f .env.test ]; then set -a; . ./.env.test; set +a; fi; playwright test --config apps/web/playwright.config.ts"
+    "test:e2e": "if [ -f .env.test ]; then set -a; . ./.env.test; set +a; fi; playwright test --config apps/web/playwright.config.ts",
+    "build:jobs": "esbuild scripts/refresh-mp-tokens.ts --bundle --platform=node --format=cjs --target=node22 --external:@prisma/client --outfile=dist-jobs/refresh-mp-tokens.cjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
+    "esbuild": "^0.28.2",
     "tsx": "^4.19.0"
   }
 }

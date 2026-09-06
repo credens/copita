@@ -1,5 +1,6 @@
 import { currentUser } from "@/lib/auth";
 import { isPlatformAdmin } from "@/lib/platform-admin";
+import { logAdminAction } from "@/lib/audit-log";
 import { db } from "@copita/db";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
   const existing = await db.contentViolation.findFirst({ where: { creatorId: creator.id, resolvedAt: null } });
   if (existing) return NextResponse.json({ error: "Ya tiene una multa activa" }, { status: 409 });
 
-  await db.contentViolation.create({ data: { creatorId: creator.id, reason: parsed.data.reason } });
+  const violation = await db.contentViolation.create({ data: { creatorId: creator.id, reason: parsed.data.reason } });
+  await logAdminAction(admin.id, "content_violation_flagged", { targetType: "User", targetId: creator.id, metadata: { username: creator.username, reason: parsed.data.reason, violationId: violation.id } });
   return NextResponse.json({ ok: true });
 }

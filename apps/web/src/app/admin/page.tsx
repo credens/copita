@@ -1,8 +1,10 @@
 import { currentUser } from "@/lib/auth";
 import { isPlatformAdmin } from "@/lib/platform-admin";
 import { accruedFineUsd, outstandingFineUsd } from "@/lib/content-violations";
+import { logAdminAction } from "@/lib/audit-log";
 import { db } from "@copita/db";
 import { redirect, notFound } from "next/navigation";
+import Link from "next/link";
 import { ContentViolationsPanel } from "./content-violations-panel";
 
 // Fase 6 (scaffold funcional): totales reales de la plataforma. Falta la
@@ -12,6 +14,8 @@ export default async function AdminPage() {
   const user = await currentUser();
   if (!user) redirect("/login");
   if (!isPlatformAdmin(user.email)) notFound();
+
+  await logAdminAction(user.id, "dashboard_viewed");
 
   const [collected, pendingCopita, pendingSubscription, copitaCount, activeSubscriptions, creatorCount, activeViolations] = await Promise.all([
     db.commission.aggregate({ where: { status: "COLLECTED" }, _sum: { amount: true } }),
@@ -36,7 +40,12 @@ export default async function AdminPage() {
 
   return (
     <div className="container" style={{ paddingTop: 40, paddingBottom: 40 }}>
-      <h1>Panel interno</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h1>Panel interno</h1>
+        <Link href="/admin/auditoria" className="btn">
+          Ver auditoría
+        </Link>
+      </div>
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
         <div className="card">
           <p className="tag">Comisión cobrada (copitas)</p>

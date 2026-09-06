@@ -144,6 +144,45 @@ psql "postgresql://localhost:5432/copita_verify" -c 'select count(*) from "User"
 dropdb copita_verify
 ```
 
+## Renovación proactiva de tokens de Mercado Pago
+
+`sellerAccessToken` (usado al cobrar una copita o una cuota de suscripción)
+renueva el token de un creador solo cuando falta menos de
+`MP_TOKEN_RENEWAL_WINDOW_DAYS` (15 días) para que venza. Si un creador no
+recibe ninguna copita ni cuota de Club durante meses, nadie llama a
+`sellerAccessToken` por él — su token puede vencer sin que se entere nadie
+hasta que falle un cobro real.
+
+`scripts/refresh-mp-tokens.ts` corre ese mismo chequeo/renovación para **todos**
+los creadores conectados, de forma proactiva, antes de que haga falta
+cobrarles nada. Se empaqueta aparte (no corre dentro del server de Next) con
+`npm run build:jobs` (esbuild, deja `dist-jobs/refresh-mp-tokens.cjs`) — tanto
+`ci.yml` como el paso de packaging de este workflow ya lo bundlean solos.
+
+**Opción A (PM2):** el release ya trae `dist-jobs/` (ver
+`deploy-pm2-release.sh`), así que solo hace falta el timer:
+
+```bash
+cp infra/systemd/copita-refresh-mp-tokens.service infra/systemd/copita-refresh-mp-tokens.timer /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now copita-refresh-mp-tokens.timer
+```
+
+Corre todos los días a las 05:15 UTC (con hasta 15 min de jitter). Para
+probarlo antes de esperar al horario:
+`systemctl start copita-refresh-mp-tokens.service` y después
+`journalctl -u copita-refresh-mp-tokens.service` para ver el log estructurado
+(`mp_token_refresh_job.completed`, con cuántos creadores chequeó/renovó/saltó/falló).
+
+**Opción B (Docker):** la imagen ya incluye `dist-jobs/` (ver `Dockerfile`).
+Programar en el host, apuntando a `docker compose exec`:
+
+```bash
+# ejemplo de systemd timer para Opción B — mismo horario/jitter que arriba,
+# cambiando solo el ExecStart del .service:
+# ExecStart=/usr/bin/docker compose -f /root/copita/docker-compose.yml exec -T app node dist-jobs/refresh-mp-tokens.cjs
+```
+
 ## Lo que no está (a propósito, todavía)
 
 Shopy además tiene un timer de health-check externo, reglas de firewall (UFW)

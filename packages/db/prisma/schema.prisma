@@ -89,8 +89,27 @@ model User {
   posts         Post[]
   authTokens    AuthToken[]
   contentViolations ContentViolation[]
+  adminAuditLogs AdminAuditLog[]
 
   @@index([username])
+}
+
+// Quién entró a /admin y qué acción tomó ahí — hoy PLATFORM_ADMIN_EMAILS es
+// el único control de acceso, esto es el rastro de auditoría de qué hizo
+// cada admin una vez adentro.
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId, createdAt])
+  @@index([action, createdAt])
 }
 
 // Multa por subir contenido +18 sin declarar el perfil como tal (ver

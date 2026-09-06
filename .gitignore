@@ -1,5 +1,6 @@
 node_modules
 .next
+dist-jobs
 .env
 .env.local
 .env.test

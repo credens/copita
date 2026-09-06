@@ -1,0 +1,9 @@
+[Unit]
+Description=Renovación proactiva de tokens de Mercado Pago de Copita
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/root/copita/shared/.env
+WorkingDirectory=/root/copita/current
+ExecStart=/usr/bin/node /root/copita/current/dist-jobs/refresh-mp-tokens.cjs

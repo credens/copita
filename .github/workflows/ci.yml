@@ -75,3 +75,4 @@ jobs:
           retention-days: 7
 
       - run: npm run build
+      - run: npm run build:jobs

@@ -4,10 +4,20 @@ import { logger } from "@/lib/logger";
 
 type MpAccount = { id: string; mpAccessToken: string | null; mpRefreshToken: string | null; mpTokenExpiresAt: Date | null };
 
+// A cuántos días del vencimiento sellerAccessToken empieza a renovar en vez de
+// devolver el token cacheado. Exportado para que el job de background
+// (scripts/refresh-mp-tokens.ts) pueda distinguir "no hacía falta tocarlo
+// todavía" de una renovación real, en vez de contar cualquier llamada exitosa
+// como si hubiera renovado algo.
+export const MP_TOKEN_RENEWAL_WINDOW_DAYS = 15;
+
+export function needsTokenRenewal(creator: Pick<MpAccount, "mpTokenExpiresAt">, now = new Date()) {
+  return Boolean(creator.mpTokenExpiresAt && creator.mpTokenExpiresAt.getTime() <= now.getTime() + MP_TOKEN_RENEWAL_WINDOW_DAYS * 24 * 60 * 60_000);
+}
+
 export async function sellerAccessToken(creator: MpAccount) {
   if (!creator.mpAccessToken) throw new Error("Mercado Pago no está conectado");
-  const validBeyondRenewalWindow = !creator.mpTokenExpiresAt || creator.mpTokenExpiresAt.getTime() > Date.now() + 15 * 24 * 60 * 60_000;
-  if (validBeyondRenewalWindow) return decryptSecret(creator.mpAccessToken);
+  if (!needsTokenRenewal(creator)) return decryptSecret(creator.mpAccessToken);
   if (!creator.mpRefreshToken) {
     logger.error("mercadopago.token_refresh_missing_refresh_token", { creatorId: creator.id });
     throw new Error("Mercado Pago requiere reconexión");

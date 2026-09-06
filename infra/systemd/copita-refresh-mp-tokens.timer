@@ -1,0 +1,10 @@
+[Unit]
+Description=Corre copita-refresh-mp-tokens.service todos los días
+
+[Timer]
+OnCalendar=*-*-* 05:15:00
+Persistent=true
+RandomizedDelaySec=15min
+
+[Install]
+WantedBy=timers.target

@@ -57,5 +57,14 @@ test("un admin marca +18 no declarado, el creador lo ve en su panel y se resuelv
   await adminPage.goto("/admin");
   await expect(adminPage.getByText(`@${creatorUsername}`)).toHaveCount(0);
 
+  // La auditoría registró que este admin entró y flagueó a este creador.
+  // El email de admin es fijo entre corridas, así que puede haber filas de
+  // corridas anteriores — se busca la fila de ESTE creador puntual, no el
+  // texto suelto (que puede repetirse).
+  await adminPage.getByRole("link", { name: "Ver auditoría" }).click();
+  await expect(adminPage).toHaveURL(/\/admin\/auditoria/);
+  await expect(adminPage.getByText("dashboard_viewed").first()).toBeVisible();
+  await expect(adminPage.getByRole("row", { name: new RegExp(`content_violation_flagged.*${creatorUsername}`) })).toBeVisible();
+
   await adminContext.close();
 });
